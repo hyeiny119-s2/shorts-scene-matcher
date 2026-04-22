@@ -243,6 +243,9 @@ class App(ctk.CTk, TkinterDnD.DnDWrapper):
         self.running = False
 
     def _open_output(self):
+        if self.running:
+            self._log("⏳ 아직 처리 중입니다. 완료 후 다시 눌러주세요.")
+            return
         prefix  = self.prefix_var.get().strip() or "output"
         base    = getattr(sys, "_MEIPASS", os.path.dirname(os.path.abspath(__file__)))
         out_dir = os.path.join(base, "data", "output", prefix)

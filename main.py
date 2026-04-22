@@ -133,12 +133,12 @@ def find_timestamps_by_audio(shorts_scenes, shorts_audio, movie_audio):
         times.append(t); confs.append(conf); all_candidates.append(candidates)
     return times, confs, all_candidates
 
-# ── 비주얼 매칭: ResNet50 CNN Features (GPU) ─────────────────────────────────
+# ── 비주얼 매칭: CLIP ViT-B/32 (GPU) ────────────────────────────────────────
 #
-# pHash(64비트) 대비 ResNet50(2048-dim L2-normalized):
+# pHash(64비트) 대비 CLIP ViT-B/32 (512-dim L2-normalized):
 #   → 시맨틱 장면 이해 수준의 feature → 구별력 압도적 향상
 #   → GPU 배치 처리로 2시간 영화도 수십 초 내 완료
-#   → 코사인 유사도 search: (M, 2048) @ (2048, R) → 즉시 결과
+#   → 코사인 유사도 search: (M, 512) @ (512, R) → 즉시 결과
 #
 # 좌/중/우 크롭 유지:
 #   → auto-framing 숏츠 (피사체가 중앙이 아닐 때) 대응
@@ -457,7 +457,7 @@ def main():
 
     # 2. ResNet50 CNN 비주얼 매칭 (GPU 배치)
     #    --visual-only 시 audio_times 전부 None → 전체 스캔
-    print("\n🔧 ResNet50 로딩 중...")
+    print("\n🔧 CLIP ViT-B/32 로딩 중...")
     _set_progress(0.10)
     model       = build_feature_extractor()
     scene_feats = prepare_scene_features(scenes, shorts_file, sw, sh, model)

@@ -26,7 +26,6 @@ class App(ctk.CTk, TkinterDnD.DnDWrapper):
         self.prefix_var     = ctk.StringVar(value="output")
         self.visual_only_var = ctk.BooleanVar(value=True)
         self.monotonic_var  = ctk.BooleanVar(value=True)
-        self.device_var     = ctk.StringVar(value="auto")
 
         self.log_queue = queue.Queue()
         self.running   = False
@@ -75,18 +74,7 @@ class App(ctk.CTk, TkinterDnD.DnDWrapper):
                         variable=self.monotonic_var, width=130).grid(
             row=0, column=3, padx=(0, 10))
 
-        ctk.CTkLabel(opt, text="처리 장치:").grid(
-            row=1, column=0, padx=(14, 6), pady=(0, 10), sticky="e")
-        dev_row = ctk.CTkFrame(opt, fg_color="transparent")
-        dev_row.grid(row=1, column=1, columnspan=3, padx=6, pady=(0, 10), sticky="w")
-        for val, txt in [
-            ("auto", "자동 (GPU→CPU 폴백)"),
-            ("cuda", "GPU 전용"),
-            ("cpu",  "CPU 전용"),
-        ]:
-            ctk.CTkRadioButton(dev_row, text=txt,
-                               variable=self.device_var, value=val).pack(
-                side="left", padx=8)
+
 
         # Run + Stop buttons
         btn_row = ctk.CTkFrame(self, fg_color="transparent")
@@ -229,7 +217,7 @@ class App(ctk.CTk, TkinterDnD.DnDWrapper):
         self.log_box.delete("1.0", "end")
         self.log_box.configure(state="disabled")
 
-    def _build_argv(self, device):
+    def _build_argv(self, device="auto"):
         argv = ["main.py",
                 "-s", self.file_paths["shorts"],
                 "-m", self.file_paths["movie"],
@@ -275,19 +263,16 @@ class App(ctk.CTk, TkinterDnD.DnDWrapper):
         old_argv = sys.argv
         sys.stdout = sys.stderr = QueueStream(self.log_queue)
 
-        choice = self.device_var.get()
-        first_device = "cpu" if choice == "cpu" else "cuda"
-
         try:
-            sys.argv = self._build_argv(first_device)
+            sys.argv = self._build_argv("cuda")
             m.main()
             self.log_queue.put("✅ 완료!")
         except m.StopProcessing:
             self.log_queue.put("⛔ 처리가 중단되었습니다.")
         except Exception as e:
             cuda_err = any(k in str(e).lower() for k in ("cuda", "out of memory", "gpu"))
-            if cuda_err and choice == "auto":
-                self.log_queue.put(f"⚠️ GPU 오류 → CPU로 재시도 중...")
+            if cuda_err:
+                self.log_queue.put("⚠️ GPU 오류 → CPU로 재시도 중...")
                 try:
                     m._stop_event.clear()
                     sys.argv = self._build_argv("cpu")

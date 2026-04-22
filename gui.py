@@ -90,7 +90,7 @@ class App(ctk.CTk, TkinterDnD.DnDWrapper):
         # Run
         self.run_btn = ctk.CTkButton(
             self, text="▶  실행", height=46,
-            font=("Segoe UI", 15, "bold"), command=self._start)
+            font=("Segoe UI", 15, "bold"), command=self._toggle)
         self.run_btn.grid(row=3, column=0, padx=20, pady=6, sticky="ew")
 
         # Log
@@ -162,9 +162,16 @@ class App(ctk.CTk, TkinterDnD.DnDWrapper):
 
     # ── Run ─────────────────────────────────────────────────────────────────
 
-    def _start(self):
+    def _toggle(self):
         if self.running:
+            import main as m
+            m._stop_event.set()
+            self.run_btn.configure(text="⛔ 중단 중...", state="disabled",
+                                   fg_color="#7f1d1d")
             return
+        self._start()
+
+    def _start(self):
         shorts = self.file_paths["shorts"]
         movie  = self.file_paths["movie"]
         if not shorts or not movie:
@@ -179,7 +186,8 @@ class App(ctk.CTk, TkinterDnD.DnDWrapper):
         self.log_box.delete("1.0", "end")
         self.log_box.configure(state="disabled")
 
-        self.run_btn.configure(state="disabled", text="⏳ 처리 중...")
+        self.run_btn.configure(state="normal", text="■  중단",
+                               fg_color="#991b1b", hover_color="#7f1d1d")
         self.running = True
         threading.Thread(target=self._worker, daemon=True).start()
 
@@ -210,6 +218,9 @@ class App(ctk.CTk, TkinterDnD.DnDWrapper):
             def flush(self):
                 pass
 
+        import main as m
+        m._stop_event.clear()
+
         old_out, old_err = sys.stdout, sys.stderr
         old_argv = sys.argv
         sys.stdout = sys.stderr = QueueStream(self.log_queue)
@@ -221,14 +232,19 @@ class App(ctk.CTk, TkinterDnD.DnDWrapper):
             sys.argv = self._build_argv(first_device)
             m.main()
             self.log_queue.put("✅ 완료!")
+        except m.StopProcessing:
+            self.log_queue.put("⛔ 처리가 중단되었습니다.")
         except Exception as e:
             cuda_err = any(k in str(e).lower() for k in ("cuda", "out of memory", "gpu"))
             if cuda_err and choice == "auto":
                 self.log_queue.put(f"⚠️ GPU 오류 → CPU로 재시도 중...")
                 try:
+                    m._stop_event.clear()
                     sys.argv = self._build_argv("cpu")
                     m.main()
                     self.log_queue.put("✅ 완료! (CPU 사용)")
+                except m.StopProcessing:
+                    self.log_queue.put("⛔ 처리가 중단되었습니다.")
                 except Exception:
                     self.log_queue.put(f"❌ 오류:\n{traceback.format_exc()}")
             else:
@@ -239,7 +255,8 @@ class App(ctk.CTk, TkinterDnD.DnDWrapper):
             self.after(0, self._done)
 
     def _done(self):
-        self.run_btn.configure(state="normal", text="▶  실행")
+        self.run_btn.configure(state="normal", text="▶  실행",
+                               fg_color=["#3B8ED0", "#1F6AA5"])
         self.running = False
 
     def _open_output(self):

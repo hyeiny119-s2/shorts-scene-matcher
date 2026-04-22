@@ -24,6 +24,16 @@ FEAT_DIM             = 512   # CLIP ViT-B/32
 
 DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
+import threading as _threading
+_stop_event = _threading.Event()
+
+class StopProcessing(Exception):
+    pass
+
+def _check_stop():
+    if _stop_event.is_set():
+        raise StopProcessing("사용자가 처리를 중단했습니다.")
+
 # CLIP 정규화 상수 — main()에서 DEVICE 확정 후 재초기화
 _IMG_MEAN = torch.tensor([0.48145466, 0.4578275,  0.40821073]).view(3, 1, 1)
 _IMG_STD  = torch.tensor([0.26862954, 0.26130258, 0.27577711]).view(3, 1, 1)
@@ -206,6 +216,7 @@ def precompute_movie_features(movie_path, sw, sh, model):
         ret, frame = cap.read()
         if not ret:
             break
+        _check_stop()
         if fidx % step == 0:
             for pos in CROP_H_POSITIONS:
                 pending_frames[pos].append(crop_frame(frame, sw, sh, pos))
@@ -236,6 +247,7 @@ def find_timestamps_by_visual(scene_feats, movie_feats, fps, audio_times, audio_
 
     results = []
     for i, (ref_feats, at, ac) in enumerate(zip(scene_feats, audio_times, audio_confs)):
+        _check_stop()
         if len(ref_feats) == 0:
             results.append(None)
             print(f"  - 씬 {i+1}: 레퍼런스 없음")
@@ -342,6 +354,7 @@ def render(label, timestamps, shorts_scenes, movie_clip, output_path, buffer):
     print(f"\n🎞️  [{label}] → {output_path}")
     clips = []
     for i, ((start, end), t) in enumerate(zip(shorts_scenes, timestamps)):
+        _check_stop()
         if t is None:
             continue
         t_end = min(t + (end - start) + buffer, movie_clip.duration)

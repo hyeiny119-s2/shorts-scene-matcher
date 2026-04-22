@@ -63,7 +63,7 @@ class App(ctk.CTk, TkinterDnD.DnDWrapper):
         opt.grid(row=2, column=0, padx=20, pady=4, sticky="ew")
         opt.grid_columnconfigure(1, weight=1)
 
-        ctk.CTkLabel(opt, text="출력 이름:").grid(
+        ctk.CTkLabel(opt, text="결과 저장 디렉토리명:").grid(
             row=0, column=0, padx=(14, 6), pady=10, sticky="e")
         ctk.CTkEntry(opt, textvariable=self.prefix_var).grid(
             row=0, column=1, padx=6, pady=10, sticky="ew")

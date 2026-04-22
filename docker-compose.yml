@@ -1,0 +1,10 @@
+version: '3.8'
+services:
+  editor:
+    build: .
+    image: shorts-auto-editor-image:latest  # ✅ 빌드될 도커 이미지 이름 지정
+    container_name: shorts_editor_app
+    volumes:
+      - .:/app
+      - ./data:/app/data
+    command: tail -f /dev/null

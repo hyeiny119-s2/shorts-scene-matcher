@@ -1,0 +1,57 @@
+name: Build Windows EXE
+
+on:
+  workflow_dispatch:   # 수동으로 실행
+
+jobs:
+  build:
+    runs-on: windows-latest
+    timeout-minutes: 120
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install ffmpeg
+        run: choco install ffmpeg -y
+
+      - name: Install Python dependencies
+        run: |
+          pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
+          pip install -r requirements.txt
+          pip install -r requirements_gui.txt
+          pip install pyinstaller
+
+      - name: Pre-download CLIP weights
+        run: python -c "import open_clip; open_clip.create_model_and_transforms('ViT-B-32', pretrained='openai')"
+
+      - name: Build with PyInstaller
+        run: |
+          pyinstaller `
+            --onedir `
+            --windowed `
+            --name ShortsAutoEditor `
+            --collect-all open_clip `
+            --collect-all timm `
+            --hidden-import=open_clip `
+            --hidden-import=open_clip.pretrained `
+            --hidden-import=timm `
+            --hidden-import=tkinterdnd2 `
+            gui.py
+
+      - name: Copy source files into dist
+        run: |
+          copy main.py dist\ShortsAutoEditor\
+          copy report.py dist\ShortsAutoEditor\
+          mkdir dist\ShortsAutoEditor\data\input
+          mkdir dist\ShortsAutoEditor\data\output
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ShortsAutoEditor-Windows
+          path: dist/ShortsAutoEditor/
+          retention-days: 7

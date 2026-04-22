@@ -20,8 +20,9 @@ class App(ctk.CTk, TkinterDnD.DnDWrapper):
         self.geometry("700x740")
         self.minsize(620, 600)
 
-        self.file_paths = {"shorts": "", "movie": ""}
+        self.file_paths  = {"shorts": "", "movie": ""}
         self.hint_labels = {}
+        self.drop_frames = {}
         self.prefix_var     = ctk.StringVar(value="output")
         self.visual_only_var = ctk.BooleanVar(value=True)
         self.monotonic_var  = ctk.BooleanVar(value=True)
@@ -102,7 +103,12 @@ class App(ctk.CTk, TkinterDnD.DnDWrapper):
             font=("Segoe UI", 13, "bold"),
             fg_color="#991b1b", hover_color="#7f1d1d",
             state="disabled", command=self._stop)
-        self.stop_btn.grid(row=0, column=1, sticky="ew")
+        self.stop_btn.grid(row=0, column=1, sticky="ew", padx=(0, 6))
+
+        ctk.CTkButton(
+            btn_row, text="↺", height=46, width=46,
+            font=("Segoe UI", 18), fg_color="#2a2a2a", hover_color="#3a3a3a",
+            command=self._reset).grid(row=0, column=2)
 
         # Progress bar
         self.progress_bar = ctk.CTkProgressBar(self, height=8)
@@ -124,6 +130,7 @@ class App(ctk.CTk, TkinterDnD.DnDWrapper):
         frame = ctk.CTkFrame(parent, height=88, border_width=2,
                               border_color="#333", cursor="hand2")
         frame.grid(row=0, column=col, padx=6, pady=10, sticky="ew")
+        self.drop_frames[key] = frame
         frame.grid_propagate(False)
         frame.grid_columnconfigure(0, weight=1)
         frame.grid_rowconfigure((0, 1), weight=1)
@@ -206,6 +213,21 @@ class App(ctk.CTk, TkinterDnD.DnDWrapper):
         import main as m
         m._stop_event.set()
         self.stop_btn.configure(state="disabled", text="중단 중...")
+
+    def _reset(self):
+        if self.running:
+            return
+        for key in ("shorts", "movie"):
+            self.file_paths[key] = ""
+            self.hint_labels[key].configure(
+                text="클릭하거나 파일을 드래그", text_color="#555")
+        for frame in self.drop_frames.values():
+            frame.configure(border_color="#333")
+        self.prefix_var.set("output")
+        self.progress_bar.set(0)
+        self.log_box.configure(state="normal")
+        self.log_box.delete("1.0", "end")
+        self.log_box.configure(state="disabled")
 
     def _build_argv(self, device):
         argv = ["main.py",

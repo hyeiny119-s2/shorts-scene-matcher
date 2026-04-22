@@ -235,7 +235,19 @@ class App(ctk.CTk, TkinterDnD.DnDWrapper):
                 pass
 
         import main as m
+        import logging, warnings
         m._stop_event.clear()
+
+        # Windows GUI 환경에서 sys.stderr 가 None 일 수 있음 → 로깅 충돌 방지
+        if sys.stderr is None:
+            sys.stderr = open(os.devnull, "w")
+        if sys.stdout is None:
+            sys.stdout = open(os.devnull, "w")
+
+        logging.raiseExceptions = False
+        os.environ.setdefault("HF_HUB_DISABLE_SYMLINKS_WARNING", "1")
+        warnings.filterwarnings("ignore", category=UserWarning, module="open_clip")
+        warnings.filterwarnings("ignore", category=UserWarning, module="huggingface_hub")
 
         old_out, old_err = sys.stdout, sys.stderr
         old_argv = sys.argv
@@ -268,6 +280,8 @@ class App(ctk.CTk, TkinterDnD.DnDWrapper):
         finally:
             sys.stdout, sys.stderr = old_out, old_err
             sys.argv = old_argv
+            logging.raiseExceptions = True
+            warnings.resetwarnings()
             self.after(0, self._done)
 
     def _poll_progress(self):

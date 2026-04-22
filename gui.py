@@ -195,7 +195,7 @@ class App(ctk.CTk, TkinterDnD.DnDWrapper):
         self.log_box.delete("1.0", "end")
         self.log_box.configure(state="disabled")
 
-        self.run_btn.configure(state="disabled")
+        self.run_btn.configure(state="disabled", text="⏳ 처리 중...")
         self.stop_btn.configure(state="normal")
         self.progress_bar.set(0)
         self.running = True
@@ -283,7 +283,7 @@ class App(ctk.CTk, TkinterDnD.DnDWrapper):
     def _done(self):
         import main as m
         self.progress_bar.set(m._progress)
-        self.run_btn.configure(state="normal")
+        self.run_btn.configure(state="normal", text="▶  실행")
         self.stop_btn.configure(state="disabled", text="■  중단")
         self.running = False
 

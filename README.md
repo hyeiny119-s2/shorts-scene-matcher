@@ -57,45 +57,6 @@ Automatically finds and cuts matching scenes from a full movie based on a refere
 
 ---
 
-## CLI 사용법 (고급)
-
-```bash
-python main.py \
-  -s data/input/shorts.mp4 \
-  -m data/input/movie.mp4 \
-  -p output_name \
-  --visual-only \
-  --monotonic
-```
-
-| 옵션 | 설명 | 기본값 |
-|------|------|--------|
-| `-s` | 숏츠 파일 경로 | 필수 |
-| `-m` | 풀영상 파일 경로 | 필수 |
-| `-p` | 출력 prefix | 필수 |
-| `-b` | 클립 버퍼 (초) | 1.0 |
-| `-t` | 컷 감지 민감도 | 3.0 |
-| `-w` | 비주얼 검색 윈도우 (초) | 60.0 |
-| `--visual-only` | 오디오 매칭 생략 (BGM 있는 숏츠) | off |
-| `--monotonic` | 시간순 정렬 + 중복 제거 | off |
-| `--min-sim` | 최소 유사도 | 0.4 |
-| `--gap` | monotonic 최소 간격 (초) | 5.0 |
-| `--device` | auto / cuda / cpu | auto |
-
----
-
-## Docker (Linux/GPU 서버)
-
-```bash
-docker build -t shorts-auto-editor-image .
-docker run --gpus all --rm \
-  -v $(pwd)/data:/app/data \
-  shorts-auto-editor-image \
-  python main.py -s data/input/shorts.mp4 -m data/input/movie.mp4 -p result --visual-only --monotonic
-```
-
----
-
 ## 처리 시간 (2시간 영화 기준)
 
 | 환경 | 소요 시간 |

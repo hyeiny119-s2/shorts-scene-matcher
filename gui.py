@@ -74,8 +74,6 @@ class App(ctk.CTk, TkinterDnD.DnDWrapper):
                         variable=self.monotonic_var, width=130).grid(
             row=0, column=3, padx=(0, 10))
 
-
-
         # Run + Stop buttons
         btn_row = ctk.CTkFrame(self, fg_color="transparent")
         btn_row.grid(row=3, column=0, padx=20, pady=6, sticky="ew")
@@ -87,15 +85,15 @@ class App(ctk.CTk, TkinterDnD.DnDWrapper):
         self.run_btn.grid(row=0, column=0, sticky="ew", padx=(0, 6))
 
         self.stop_btn = ctk.CTkButton(
-            btn_row, text="■  중단", height=46, width=100,
+            btn_row, text="■  중단", height=46, width=110,
             font=("Segoe UI", 13, "bold"),
-            fg_color="#991b1b", hover_color="#7f1d1d",
+            fg_color="#2a2a2a", hover_color="#7f1d1d",
             state="disabled", command=self._stop)
         self.stop_btn.grid(row=0, column=1, sticky="ew", padx=(0, 6))
 
         ctk.CTkButton(
-            btn_row, text="↺", height=46, width=46,
-            font=("Segoe UI", 18), fg_color="#2a2a2a", hover_color="#3a3a3a",
+            btn_row, text="↺  초기화", height=46,
+            font=("Segoe UI", 12), fg_color="#2a2a2a", hover_color="#3a3a3a",
             command=self._reset).grid(row=0, column=2)
 
         # Progress bar
@@ -191,7 +189,7 @@ class App(ctk.CTk, TkinterDnD.DnDWrapper):
         self.log_box.configure(state="disabled")
 
         self.run_btn.configure(state="disabled", text="⏳ 처리 중...")
-        self.stop_btn.configure(state="normal")
+        self.stop_btn.configure(state="normal", fg_color="#991b1b", hover_color="#7f1d1d")
         self.progress_bar.set(0)
         self.running = True
         threading.Thread(target=self._worker, daemon=True).start()
@@ -306,7 +304,8 @@ class App(ctk.CTk, TkinterDnD.DnDWrapper):
         import main as m
         self.progress_bar.set(m._progress)
         self.run_btn.configure(state="normal", text="▶  실행")
-        self.stop_btn.configure(state="disabled", text="■  중단")
+        self.stop_btn.configure(state="disabled", text="■  중단",
+                                fg_color="#2a2a2a", hover_color="#7f1d1d")
         self.running = False
 
     def _open_output(self):

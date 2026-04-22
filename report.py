@@ -78,7 +78,7 @@ th.audio{{color:#3b82f6}}td.audio{{color:#3b82f6}}
 th.visual{{color:#10b981}}td.visual{{color:#10b981}}
 th.final{{color:#f59e0b}}td.final{{color:#f59e0b}}
 tr:hover td{{background:#1a1a1a}}
-.grid{{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;padding:8px;flex:1}}
+.grid{{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;padding:8px;flex:1}}
 .cell{{display:flex;flex-direction:column;background:#1c1c1c;border-radius:8px;overflow:hidden;border:2px solid #2a2a2a}}
 .cell.ref{{border-color:#555}}.cell.visual{{border-color:#10b981}}.cell.final{{border-color:#f59e0b}}
 .lbl{{padding:6px 8px;font-size:11px;text-align:center;background:#181818;flex-shrink:0;line-height:1.5}}
@@ -135,9 +135,9 @@ select{{background:#2a2a2a;color:#999;border:none;padding:4px 7px;border-radius:
       </div>
     </div>
   </div>
-  <div class="cell visual">
-    <div class="lbl">👁️ 비주얼 매칭<small>ResNet50 CNN</small></div>
-    <video id="v1" src="{visual_rel}" preload="metadata" muted></video>
+  <div class="cell final">
+    <div class="lbl">🏆 결과 영상<small>{prefix}</small></div>
+    <video id="v1" src="{final_rel}" preload="metadata" muted></video>
     <div class="vc">
       <div class="sr">
         <span class="t" id="c1">00:00</span>
@@ -153,31 +153,13 @@ select{{background:#2a2a2a;color:#999;border:none;padding:4px 7px;border-radius:
       </div>
     </div>
   </div>
-  <div class="cell final">
-    <div class="lbl">🏆 Final<small>{prefix}</small></div>
-    <video id="v2" src="{final_rel}" preload="metadata" muted></video>
-    <div class="vc">
-      <div class="sr">
-        <span class="t" id="c2">00:00</span>
-        <input type="range" id="s2" min="0" max="100" step="0.05" value="0" oninput="si(2)" onchange="sc(2)" onmousedown="dd(2,true)" onmouseup="dd(2,false)">
-        <span class="t r" id="d2">00:00</span>
-      </div>
-      <div class="br">
-        <button class="btn" onclick="sk(2,-5)">◀5s</button>
-        <button class="btn p" id="pb2" onclick="tp(2)">▶</button>
-        <button class="btn" onclick="sk(2,5)">5s▶</button>
-        <button class="btn on" id="mb2" onclick="tm(2)">🔇</button>
-        <select onchange="sr(2,this.value)"><option value="0.5">0.5×</option><option value="1" selected>1×</option><option value="1.5">1.5×</option><option value="2">2×</option></select>
-      </div>
-    </div>
-  </div>
 </div>
 <script>
-const V=[0,1,2].map(i=>document.getElementById('v'+i));
-const drag=[false,false,false];
+const V=[0,1].map(i=>document.getElementById('v'+i));
+const drag=[false,false];
 const fm=s=>{{if(isNaN(s))return'00:00';const h=~~(s/3600),m=~~((s%3600)/60),sec=~~(s%60);return h?[h,m,sec].map(n=>('0'+n).slice(-2)).join(':'):[m,sec].map(n=>('0'+n).slice(-2)).join(':');}};
 const sp=t=>t.style.setProperty('--p',(t._v&&t._v.duration?(+t.value/t._v.duration*100):0).toFixed(2)+'%');
-[0,1,2].forEach(i=>{{
+[0,1].forEach(i=>{{
   const v=V[i],s=document.getElementById('s'+i),c=document.getElementById('c'+i),d=document.getElementById('d'+i);
   s._v=v;
   v.addEventListener('loadedmetadata',()=>{{s.max=v.duration;d.textContent=fm(v.duration);}});

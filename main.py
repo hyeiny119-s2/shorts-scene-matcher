@@ -26,6 +26,7 @@ DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 import threading as _threading
 _stop_event = _threading.Event()
+_progress   = 0.0
 
 class StopProcessing(Exception):
     pass
@@ -33,6 +34,10 @@ class StopProcessing(Exception):
 def _check_stop():
     if _stop_event.is_set():
         raise StopProcessing("사용자가 처리를 중단했습니다.")
+
+def _set_progress(val):
+    global _progress
+    _progress = min(max(float(val), 0.0), 1.0)
 
 # CLIP 정규화 상수 — main()에서 DEVICE 확정 후 재초기화
 _IMG_MEAN = torch.tensor([0.48145466, 0.4578275,  0.40821073]).view(3, 1, 1)
@@ -189,7 +194,7 @@ def prepare_scene_features(scenes, shorts_path, sw, sh, model):
     cap.release()
     return scene_feats
 
-def precompute_movie_features(movie_path, sw, sh, model):
+def precompute_movie_features(movie_path, sw, sh, model, progress_cb=None):
     """
     영화 전체 1회 순차 스캔 → GPU 배치로 feature 추출
     {crop_pos: {frame_idx: feature_vector (2048,)}}
@@ -226,6 +231,8 @@ def precompute_movie_features(movie_path, sw, sh, model):
                 pending_fidxs.clear()
         if fidx % (step * 300) == 0:
             print(f"  ... {fidx}/{total} ({fidx/total*100:.1f}%)", end='\r')
+            if progress_cb and total > 0:
+                progress_cb(fidx / total)
         fidx += 1
 
     if pending_fidxs:
@@ -425,9 +432,11 @@ def main():
     prefix  = args.prefix.removesuffix('.mp4')
     out_dir = os.path.join("data/output", prefix)
 
+    _set_progress(0.02)
     scenes = get_shorts_scenes(shorts_file, args.threshold)
     if args.preview:
         return
+    _set_progress(0.05)
 
     sw, sh = get_video_size(shorts_file)
     print(f"📐 숏츠 해상도: {sw}×{sh}")
@@ -449,13 +458,19 @@ def main():
     # 2. ResNet50 CNN 비주얼 매칭 (GPU 배치)
     #    --visual-only 시 audio_times 전부 None → 전체 스캔
     print("\n🔧 ResNet50 로딩 중...")
+    _set_progress(0.10)
     model       = build_feature_extractor()
     scene_feats = prepare_scene_features(scenes, shorts_file, sw, sh, model)
-    movie_feats, movie_fps, movie_duration = precompute_movie_features(movie_file, sw, sh, model)
+    _set_progress(0.15)
+    movie_feats, movie_fps, movie_duration = precompute_movie_features(
+        movie_file, sw, sh, model,
+        progress_cb=lambda p: _set_progress(0.15 + 0.60 * p))
+    _set_progress(0.75)
     visual_times = find_timestamps_by_visual(
         scene_feats, movie_feats, movie_fps, audio_times, audio_confs, args.window,
         min_sim=args.min_sim)
 
+    _set_progress(0.80)
     # 3. Final: 오디오 신뢰도 기반 선택
     #    --visual-only 시 무조건 비주얼 사용
     final_times = []
@@ -478,12 +493,15 @@ def main():
         mono_times, mono_scenes = final_times,  scenes
 
     # 렌더링
+    _set_progress(0.84)
     movie_clip = VideoFileClip(movie_file)
     try:
         render("비주얼 CNN",  vis_times,  vis_scenes,  movie_clip,
                os.path.join(out_dir, f"{prefix}_visual.mp4"), args.buffer)
+        _set_progress(0.91)
         render("Final",       mono_times, mono_scenes, movie_clip,
                os.path.join(out_dir, f"{prefix}_final.mp4"),  args.buffer)
+        _set_progress(0.96)
     finally:
         movie_clip.close()
 
@@ -491,9 +509,11 @@ def main():
     visual_thumbs = extract_thumbnails(movie_file, visual_times, out_dir, prefix, "visual")
     final_thumbs  = extract_thumbnails(movie_file, final_times,  out_dir, prefix, "final")
 
+    _set_progress(0.99)
     generate_report(prefix, shorts_file, out_dir,
                     scenes, audio_times, visual_times, final_times, args,
                     visual_thumbs, final_thumbs)
+    _set_progress(1.0)
 
 if __name__ == "__main__":
     main()

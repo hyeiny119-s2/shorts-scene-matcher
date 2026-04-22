@@ -37,7 +37,7 @@ class App(ctk.CTk, TkinterDnD.DnDWrapper):
 
     def _build_ui(self):
         self.grid_columnconfigure(0, weight=1)
-        self.grid_rowconfigure(4, weight=1)
+        self.grid_rowconfigure(5, weight=1)
 
         # Header
         hdr = ctk.CTkFrame(self, fg_color="transparent")
@@ -87,22 +87,38 @@ class App(ctk.CTk, TkinterDnD.DnDWrapper):
                                variable=self.device_var, value=val).pack(
                 side="left", padx=8)
 
-        # Run
+        # Run + Stop buttons
+        btn_row = ctk.CTkFrame(self, fg_color="transparent")
+        btn_row.grid(row=3, column=0, padx=20, pady=6, sticky="ew")
+        btn_row.grid_columnconfigure(0, weight=1)
+
         self.run_btn = ctk.CTkButton(
-            self, text="▶  실행", height=46,
-            font=("Segoe UI", 15, "bold"), command=self._toggle)
-        self.run_btn.grid(row=3, column=0, padx=20, pady=6, sticky="ew")
+            btn_row, text="▶  실행", height=46,
+            font=("Segoe UI", 15, "bold"), command=self._start)
+        self.run_btn.grid(row=0, column=0, sticky="ew", padx=(0, 6))
+
+        self.stop_btn = ctk.CTkButton(
+            btn_row, text="■  중단", height=46, width=100,
+            font=("Segoe UI", 13, "bold"),
+            fg_color="#991b1b", hover_color="#7f1d1d",
+            state="disabled", command=self._stop)
+        self.stop_btn.grid(row=0, column=1, sticky="ew")
+
+        # Progress bar
+        self.progress_bar = ctk.CTkProgressBar(self, height=8)
+        self.progress_bar.set(0)
+        self.progress_bar.grid(row=4, column=0, padx=20, pady=(0, 4), sticky="ew")
 
         # Log
         self.log_box = ctk.CTkTextbox(self, font=("Consolas", 11), state="disabled")
-        self.log_box.grid(row=4, column=0, padx=20, pady=(0, 6), sticky="nsew")
+        self.log_box.grid(row=5, column=0, padx=20, pady=(0, 6), sticky="nsew")
 
         # Open output
         ctk.CTkButton(
             self, text="📁 출력 폴더 열기", height=36,
             fg_color="transparent", border_width=1, border_color="#444",
             command=self._open_output,
-        ).grid(row=5, column=0, padx=20, pady=(0, 16), sticky="ew")
+        ).grid(row=6, column=0, padx=20, pady=(0, 16), sticky="ew")
 
     def _make_drop_zone(self, parent, label, key, col):
         frame = ctk.CTkFrame(parent, height=88, border_width=2,
@@ -162,16 +178,9 @@ class App(ctk.CTk, TkinterDnD.DnDWrapper):
 
     # ── Run ─────────────────────────────────────────────────────────────────
 
-    def _toggle(self):
-        if self.running:
-            import main as m
-            m._stop_event.set()
-            self.run_btn.configure(text="⛔ 중단 중...", state="disabled",
-                                   fg_color="#7f1d1d")
-            return
-        self._start()
-
     def _start(self):
+        if self.running:
+            return
         shorts = self.file_paths["shorts"]
         movie  = self.file_paths["movie"]
         if not shorts or not movie:
@@ -186,10 +195,17 @@ class App(ctk.CTk, TkinterDnD.DnDWrapper):
         self.log_box.delete("1.0", "end")
         self.log_box.configure(state="disabled")
 
-        self.run_btn.configure(state="normal", text="■  중단",
-                               fg_color="#991b1b", hover_color="#7f1d1d")
+        self.run_btn.configure(state="disabled")
+        self.stop_btn.configure(state="normal")
+        self.progress_bar.set(0)
         self.running = True
         threading.Thread(target=self._worker, daemon=True).start()
+        self._poll_progress()
+
+    def _stop(self):
+        import main as m
+        m._stop_event.set()
+        self.stop_btn.configure(state="disabled", text="중단 중...")
 
     def _build_argv(self, device):
         argv = ["main.py",
@@ -254,9 +270,21 @@ class App(ctk.CTk, TkinterDnD.DnDWrapper):
             sys.argv = old_argv
             self.after(0, self._done)
 
+    def _poll_progress(self):
+        if not self.running:
+            return
+        try:
+            import main as m
+            self.progress_bar.set(m._progress)
+        except Exception:
+            pass
+        self.after(200, self._poll_progress)
+
     def _done(self):
-        self.run_btn.configure(state="normal", text="▶  실행",
-                               fg_color=["#3B8ED0", "#1F6AA5"])
+        import main as m
+        self.progress_bar.set(m._progress)
+        self.run_btn.configure(state="normal")
+        self.stop_btn.configure(state="disabled", text="■  중단")
         self.running = False
 
     def _open_output(self):

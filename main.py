@@ -447,7 +447,7 @@ def main():
         n = len(scenes)
         audio_times     = [None] * n
         audio_confs     = [0.0]  * n
-        audio_candidates = [[]]  * n
+        audio_candidates = [[] for _ in range(n)]
     else:
         print("\n📂 오디오 로딩 중...")
         shorts_audio = load_audio(shorts_file)

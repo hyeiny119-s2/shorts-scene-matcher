@@ -231,6 +231,7 @@ class App(ctk.CTk, TkinterDnD.DnDWrapper):
 
     def _worker(self):
         import main as m
+        import logging, warnings
 
         class QueueStream:
             def __init__(self, q):
@@ -244,9 +245,11 @@ class App(ctk.CTk, TkinterDnD.DnDWrapper):
             def flush(self):
                 pass
 
-        import main as m
-        import logging, warnings
         m._stop_event.clear()
+
+        # 원본 저장 먼저 → devnull 패치 전에 저장해야 복원이 정확함
+        old_out, old_err = sys.stdout, sys.stderr
+        old_argv = sys.argv
 
         # Windows GUI 환경에서 sys.stderr 가 None 일 수 있음 → 로깅 충돌 방지
         if sys.stderr is None:
@@ -259,8 +262,6 @@ class App(ctk.CTk, TkinterDnD.DnDWrapper):
         warnings.filterwarnings("ignore", category=UserWarning, module="open_clip")
         warnings.filterwarnings("ignore", category=UserWarning, module="huggingface_hub")
 
-        old_out, old_err = sys.stdout, sys.stderr
-        old_argv = sys.argv
         sys.stdout = sys.stderr = QueueStream(self.log_queue)
 
         try:

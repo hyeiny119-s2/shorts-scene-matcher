@@ -92,18 +92,20 @@ if exist "%DIR%ffmpeg.exe" (
     )
 )
 
-REM Create desktop shortcut using pythonw (no console window)
+REM Create shortcuts (desktop + folder)
 echo.
-echo Creating desktop shortcut...
+echo Creating shortcuts...
 powershell -Command ^
     "$pythonw = (Get-Command python.exe -ErrorAction SilentlyContinue).Source -replace 'python.exe','pythonw.exe';" ^
     "$ws = New-Object -ComObject WScript.Shell;" ^
-    "$s = $ws.CreateShortcut([IO.Path]::Combine($env:USERPROFILE,'Desktop','Shorts Auto Editor.lnk'));" ^
-    "$s.TargetPath = $pythonw;" ^
-    "$s.Arguments = ('\"' + '%DIR%gui.py' + '\"');" ^
-    "$s.WorkingDirectory = '%DIR%';" ^
-    "$s.Description = 'Shorts Auto Editor';" ^
-    "$s.Save()"
+    "foreach ($dest in @([IO.Path]::Combine($env:USERPROFILE,'Desktop','Shorts Auto Editor.lnk'), '%DIR%Shorts Auto Editor.lnk')) {" ^
+    "  $s = $ws.CreateShortcut($dest);" ^
+    "  $s.TargetPath = $pythonw;" ^
+    "  $s.Arguments = ('\"' + '%DIR%gui.py' + '\"');" ^
+    "  $s.WorkingDirectory = '%DIR%';" ^
+    "  $s.Description = 'Shorts Auto Editor';" ^
+    "  $s.Save()" ^
+    "}"
 
 echo.
 echo ============================================
@@ -111,5 +113,4 @@ echo   Setup complete!
 echo   Double-click "Shorts Auto Editor"
 echo   on your Desktop to start.
 echo ============================================
-echo.
-pause
+timeout /t 3 /nobreak >nul

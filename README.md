@@ -1,4 +1,4 @@
-# Shorts Scene Matcher
+# Shorts Auto Editor
 
 숏츠 영상을 넣으면, 원본 영화에서 해당 장면들을 자동으로 찾아서 잘라주는 프로그램입니다.
 

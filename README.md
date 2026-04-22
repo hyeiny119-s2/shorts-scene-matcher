@@ -23,19 +23,13 @@ Automatically finds and cuts matching scenes from a full movie based on a refere
 
 ### 2. setup.bat 실행
 
-폴더 안의 `setup.bat` 을 더블클릭합니다.
-
-- Python 자동 설치
-- GPU 감지 후 CUDA / CPU 버전 PyTorch 설치
-- CLIP 모델 다운로드 (~350MB)
-- ffmpeg 설치
-- 바탕화면 바로가기 생성
+폴더 안의 `setup.bat` 을 더블클릭하고 완료될 때까지 기다립니다.
 
 > 인터넷 연결 필요 / 약 15~20분 소요 (최초 1회)
 
 ### 3. 실행
 
-바탕화면의 **Shorts Auto Editor** 바로가기 더블클릭
+바탕화면 또는 폴더 안의 **Shorts Auto Editor** 바로가기를 더블클릭합니다.
 (바로가기가 없으면 폴더 안 `run.bat` 더블클릭)
 
 ---

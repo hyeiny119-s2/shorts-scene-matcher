@@ -55,7 +55,7 @@ def get_video_size(path):
     return w, h
 
 def get_shorts_scenes(path, threshold=3.0):
-    print(f"🎬 컷 분석 중... (threshold={threshold})")
+    print(f"\n🎬 컷 분석 중... (threshold={threshold})")
     scenes = []
     for i, sc in enumerate(detect(path, AdaptiveDetector(adaptive_threshold=threshold))):
         s, e = sc[0].get_seconds(), sc[1].get_seconds()
@@ -463,7 +463,7 @@ def main():
     _set_progress(0.05)
 
     sw, sh = get_video_size(shorts_file)
-    print(f"📐 숏츠 해상도: {sw}×{sh}")
+    print(f"\n📐 숏츠 해상도: {sw}×{sh}")
 
     _set_progress(0.10)
     if not args.visual_only:

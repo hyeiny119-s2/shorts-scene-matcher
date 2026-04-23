@@ -285,6 +285,8 @@ class App(ctk.CTk, TkinterDnD.DnDWrapper):
 
         logging.raiseExceptions = False
         os.environ.setdefault("HF_HUB_DISABLE_SYMLINKS_WARNING", "1")
+        os.environ.setdefault("HF_HUB_DISABLE_PROGRESS_BARS", "1")
+        os.environ.setdefault("TRANSFORMERS_NO_ADVISORY_WARNINGS", "1")
         warnings.filterwarnings("ignore", category=UserWarning, module="transformers")
         warnings.filterwarnings("ignore", category=UserWarning, module="huggingface_hub")
 

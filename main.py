@@ -24,7 +24,7 @@ FRAME_POSITIONS      = [0.1, 0.25, 0.5, 0.75, 0.9]
 CROP_H_POSITIONS     = [0.25, 0.5, 0.75]
 VISUAL_FPS_SAMPLE    = 3
 BATCH_SIZE           = 64
-FEAT_DIM             = 768   # DINOv2-Base
+FEAT_DIM             = 384   # DINOv2-Small
 
 DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
@@ -128,19 +128,19 @@ def find_timestamps_by_audio(shorts_scenes, shorts_audio, movie_audio):
         times.append(t); confs.append(conf); all_candidates.append(candidates)
     return times, confs, all_candidates
 
-# ── 비주얼 매칭: DINOv2-Base (GPU) ──────────────────────────────────────────
+# ── 비주얼 매칭: DINOv2-Small (GPU) ─────────────────────────────────────────
 #
-# DINOv2 (768-dim L2-normalized, self-supervised):
+# DINOv2 (384-dim L2-normalized, self-supervised):
 #   → 텍스트 없이 순수 시각 유사성 학습 → 장면 매칭에 더 특화
 #   → GPU 배치 처리로 2시간 영화도 수십 초 내 완료
-#   → 코사인 유사도 search: (M, 768) @ (768, R) → 즉시 결과
+#   → 코사인 유사도 search: (M, 384) @ (384, R) → 즉시 결과
 #
 # 좌/중/우 크롭 유지:
 #   → auto-framing 숏츠 (피사체가 중앙이 아닐 때) 대응
 
 class DINOv2Extractor:
-    """DINOv2-Base wrapper — encode_image(frames_bgr) → (N, 768) numpy"""
-    def __init__(self, model_name='facebook/dinov2-base'):
+    """DINOv2-Small wrapper — encode_image(frames_bgr) → (N, 384) numpy"""
+    def __init__(self, model_name='facebook/dinov2-small'):
         self.processor = AutoImageProcessor.from_pretrained(model_name)
         self.model     = AutoModel.from_pretrained(model_name).eval().to(DEVICE)
 
@@ -154,7 +154,7 @@ class DINOv2Extractor:
         return F.normalize(feats, dim=1)
 
 def build_feature_extractor():
-    """DINOv2-Base visual encoder → 768-dim features"""
+    """DINOv2-Small visual encoder → 384-dim features"""
     return DINOv2Extractor()
 
 @torch.no_grad()
@@ -468,14 +468,14 @@ def main():
     _set_progress(0.10)
     if not args.visual_only:
         # 오디오 로딩과 모델 로딩을 병렬로 실행
-        print("\n📂 숏츠 오디오 로딩 + DINOv2-Base 로딩 중... (병렬)")
+        print("\n📂 숏츠 오디오 로딩 + DINOv2-Small 로딩 중... (병렬)")
         with ThreadPoolExecutor(max_workers=2) as ex:
             audio_fut = ex.submit(load_audio, shorts_file)
             model_fut = ex.submit(build_feature_extractor)
         shorts_audio = audio_fut.result()
         model        = model_fut.result()
     else:
-        print("\n🔧 DINOv2-Base 로딩 중...")
+        print("\n🔧 DINOv2-Small 로딩 중...")
         model = build_feature_extractor()
 
     scene_feats = prepare_scene_features(scenes, shorts_file, sw, sh, model)

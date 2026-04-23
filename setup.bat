@@ -103,7 +103,7 @@ echo   Setup complete!
 echo   Double-click "Shorts Auto Editor"
 echo   on your Desktop to start.
 echo.
-echo   Note: AI model (~330MB) will download
+echo   Note: AI model (~85MB) will download
 echo   automatically on first run.
 echo ============================================
 timeout /t 3 /nobreak >nul

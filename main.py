@@ -130,7 +130,7 @@ def find_timestamps_by_audio(shorts_scenes, shorts_audio, movie_audio):
 
 # ── 비주얼 매칭: DINOv2-Base (GPU) ──────────────────────────────────────────
 #
-# CLIP 대비 DINOv2 (768-dim L2-normalized, self-supervised):
+# DINOv2 (768-dim L2-normalized, self-supervised):
 #   → 텍스트 없이 순수 시각 유사성 학습 → 장면 매칭에 더 특화
 #   → GPU 배치 처리로 2시간 영화도 수십 초 내 완료
 #   → 코사인 유사도 search: (M, 768) @ (768, R) → 즉시 결과
@@ -355,7 +355,8 @@ def apply_monotonic_constraint(final_times, scenes, min_gap=5.0, buffer=1.0):
     # 숏츠 원본 씬 순서로 재정렬
     selected.sort(key=lambda x: x[0])
     print(f"  → {len(selected)}/{len(pairs)}개 선택 (숏츠 순서로 재정렬)")
-    return [x[1] for x in selected], [x[2] for x in selected]
+    selected_idx = {x[0] for x in selected}
+    return [x[1] for x in selected], [x[2] for x in selected], selected_idx
 
 # ── 썸네일 추출 ───────────────────────────────────────────────────────────────
 
@@ -529,10 +530,16 @@ def main():
 
         # 4. 단조 시간순 제약
         if args.monotonic:
-            mono_times, mono_scenes = apply_monotonic_constraint(
+            mono_times, mono_scenes, mono_idx = apply_monotonic_constraint(
                 final_times, scenes, min_gap=args.gap, buffer=args.buffer)
+            # 필터링된 씬은 None으로 마스킹 (리포트 썸네일 정합성)
+            final_times_for_thumbs = [
+                ft if i in mono_idx else None
+                for i, ft in enumerate(final_times)
+            ]
         else:
             mono_times, mono_scenes = final_times, scenes
+            final_times_for_thumbs = final_times
 
         # 렌더링
         _set_progress(0.84)
@@ -546,8 +553,8 @@ def main():
 
         print("\n🖼️  썸네일 추출 중...")
         shorts_times  = [(s + e) / 2 for s, e in scenes]
-        shorts_thumbs = extract_thumbnails(shorts_file, shorts_times, out_dir, prefix, "shorts")
-        final_thumbs  = extract_thumbnails(movie_file,  final_times,  out_dir, prefix, "final")
+        shorts_thumbs = extract_thumbnails(shorts_file, shorts_times,          out_dir, prefix, "shorts")
+        final_thumbs  = extract_thumbnails(movie_file,  final_times_for_thumbs, out_dir, prefix, "final")
 
         _set_progress(0.99)
         generate_report(prefix, shorts_file, out_dir,

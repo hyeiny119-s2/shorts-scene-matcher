@@ -5,7 +5,7 @@ import datetime
 
 def generate_report(prefix, shorts_file, out_dir,
                     scenes, audio_times, visual_times, final_times, args,
-                    shorts_thumbs=None, visual_thumbs=None, final_thumbs=None):
+                    shorts_thumbs=None, final_thumbs=None):
     os.makedirs(out_dir, exist_ok=True)
     report_path = os.path.join(out_dir, f"{prefix}_report.html")
 
@@ -38,12 +38,11 @@ def generate_report(prefix, shorts_file, out_dir,
         return f'<td class="ts">{img}{fmt(t)}</td>'
 
     st_list = shorts_thumbs or [None] * len(scenes)
-    vt_list = visual_thumbs or [None] * len(scenes)
     ft_list = final_thumbs  or [None] * len(scenes)
 
     rows = ""
-    for i, ((s, e), at, vt, ft, sth, vth, fth) in enumerate(
-            zip(scenes, audio_times, visual_times, final_times, st_list, vt_list, ft_list)):
+    for i, ((s, e), at, vt, ft, sth, fth) in enumerate(
+            zip(scenes, audio_times, visual_times, final_times, st_list, ft_list)):
         dur = e - s
         rows += f"""
       <tr>
@@ -51,7 +50,7 @@ def generate_report(prefix, shorts_file, out_dir,
         {td_thumb(s, sth)}
         <td class="ts">{fmt(s)}</td><td class="ts">{fmt(e)}</td>
         <td class="ts dur">{fmt(dur)}</td>
-        {td(at)}{td_thumb(vt, vth)}{td_thumb(ft, fth)}
+        {td(at)}{td(vt)}{td_thumb(ft, fth)}
       </tr>"""
 
     now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")

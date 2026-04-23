@@ -145,9 +145,8 @@ class DINOv2Extractor:
         self.model     = AutoModel.from_pretrained(model_name).eval().to(DEVICE)
 
     @torch.no_grad()
-    def encode_image(self, frames_bgr):
-        pil_imgs = [PILImage.fromarray(cv2.cvtColor(f, cv2.COLOR_BGR2RGB))
-                    for f in frames_bgr]
+    def encode_image(self, frames_rgb):
+        pil_imgs = [PILImage.fromarray(f) for f in frames_rgb]
         inputs = self.processor(images=pil_imgs, return_tensors="pt")
         inputs = {k: v.to(DEVICE) for k, v in inputs.items()}
         feats  = self.model(**inputs).last_hidden_state[:, 0, :]  # CLS token
@@ -164,13 +163,13 @@ def frames_to_features(frames_bgr, model):
     return feats.cpu().numpy().astype(np.float32)
 
 def crop_frame(frame, sw, sh, h_pos=0.5):
-    """영화 프레임을 숏츠 비율로 크롭 (resize 없이, features 추출 전에 수행)"""
+    """영화 프레임을 숏츠 비율로 크롭 후 DINOv2 입력 크기(224×224)로 리사이즈"""
     fh, fw = frame.shape[:2]
     cw = int(fh * sw / sh)
     if cw < fw:
         x = int((fw - cw) * h_pos)
         frame = frame[:, x:x + cw]
-    return frame
+    return cv2.resize(frame, (224, 224), interpolation=cv2.INTER_LINEAR)
 
 def prepare_scene_features(scenes, shorts_path, sw, sh, model):
     """숏츠 씬별 레퍼런스 프레임 feature 추출 (GPU)"""
@@ -184,7 +183,8 @@ def prepare_scene_features(scenes, shorts_path, sw, sh, model):
             cap.set(cv2.CAP_PROP_POS_MSEC, t * 1000)
             ret, f = cap.read()
             if ret:
-                frames.append(f)   # 숏츠는 이미 세로 비율 → 그대로 사용
+                f = cv2.resize(f, (224, 224), interpolation=cv2.INTER_LINEAR)
+                frames.append(cv2.cvtColor(f, cv2.COLOR_BGR2RGB))
         feats = frames_to_features(frames, model) if frames else np.zeros((0, FEAT_DIM), np.float32)
         scene_feats.append(feats)
     cap.release()
@@ -193,7 +193,7 @@ def prepare_scene_features(scenes, shorts_path, sw, sh, model):
 def precompute_movie_features(movie_path, sw, sh, model, progress_cb=None):
     """
     영화 전체 1회 순차 스캔 → GPU 배치로 feature 추출
-    {crop_pos: {frame_idx: feature_vector (768,)}}
+    {crop_pos: {frame_idx: feature_vector (384,)}}
 
     최적화:
     - 3 crop을 하나의 GPU 배치로 합쳐 커널 호출 3× → 1×
@@ -222,7 +222,8 @@ def precompute_movie_features(movie_path, sw, sh, model, progress_cb=None):
                 break
             if fidx % step == 0:
                 for pos in CROP_H_POSITIONS:
-                    pending_crops.append(crop_frame(frame, sw, sh, pos))
+                    c = crop_frame(frame, sw, sh, pos)
+                    pending_crops.append(cv2.cvtColor(c, cv2.COLOR_BGR2RGB))
                 pending_fidxs.append(fidx)
                 if len(pending_fidxs) >= BATCH_SIZE:
                     batch_q.put((list(pending_fidxs), list(pending_crops)))

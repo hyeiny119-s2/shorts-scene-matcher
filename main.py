@@ -174,7 +174,7 @@ def crop_frame(frame, sw, sh, h_pos=0.5):
 
 def prepare_scene_features(scenes, shorts_path, sw, sh, model):
     """숏츠 씬별 레퍼런스 프레임 feature 추출 (GPU)"""
-    print("  숏츠 레퍼런스 feature 추출 중...")
+    print("\n  숏츠 레퍼런스 feature 추출 중...")
     cap = cv2.VideoCapture(shorts_path)
     scene_feats = []
     for start, end in scenes:

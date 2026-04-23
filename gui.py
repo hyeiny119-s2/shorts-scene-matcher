@@ -266,7 +266,11 @@ class App(ctk.CTk, TkinterDnD.DnDWrapper):
                 self.buf += s
                 while "\n" in self.buf:
                     line, self.buf = self.buf.split("\n", 1)
-                    self.q.put(line)
+                    if "\r" in line:
+                        line = line.split("\r")[-1]
+                    line = line.strip()
+                    if line:
+                        self.q.put(line)
             def flush(self):
                 pass
 
@@ -284,9 +288,9 @@ class App(ctk.CTk, TkinterDnD.DnDWrapper):
             sys.stdout = open(os.devnull, "w")
 
         logging.raiseExceptions = False
-        os.environ.setdefault("HF_HUB_DISABLE_SYMLINKS_WARNING", "1")
-        os.environ.setdefault("HF_HUB_DISABLE_PROGRESS_BARS", "1")
-        os.environ.setdefault("TRANSFORMERS_NO_ADVISORY_WARNINGS", "1")
+        os.environ["HF_HUB_DISABLE_SYMLINKS_WARNING"] = "1"
+        os.environ["HF_HUB_DISABLE_PROGRESS_BARS"] = "1"
+        os.environ["TRANSFORMERS_NO_ADVISORY_WARNINGS"] = "1"
         warnings.filterwarnings("ignore", category=UserWarning, module="transformers")
         warnings.filterwarnings("ignore", category=UserWarning, module="huggingface_hub")
 

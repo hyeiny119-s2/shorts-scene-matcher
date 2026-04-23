@@ -310,22 +310,22 @@ def apply_monotonic_constraint(final_times, scenes, min_gap=5.0, buffer=1.0):
     pairs = [(t, i) for i, t in enumerate(final_times) if t is not None]
     pairs.sort(key=lambda x: x[0])
 
-    selected_times  = []
-    selected_scenes = []
-    prev_end        = -1e9
+    selected = []  # (scene_idx, t, scene_tuple)
+    prev_end = -1e9
 
     for t, idx in pairs:
         dur = scenes[idx][1] - scenes[idx][0]
         if t >= prev_end + min_gap:
-            selected_times.append(t)
-            selected_scenes.append(scenes[idx])
-            prev_end = t + dur + buffer   # 실제 렌더 끝 시점 기준
+            selected.append((idx, t, scenes[idx]))
+            prev_end = t + dur + buffer
             print(f"  ✅ 씬 {idx+1}: {format_time(t)}  (렌더 끝: {format_time(prev_end)})")
         else:
             print(f"  ⏭️  씬 {idx+1}: {format_time(t)}  → 스킵 (이전 렌더 끝까지 {prev_end - t:.1f}s 남음)")
 
-    print(f"  → {len(selected_times)}/{len(pairs)}개 선택")
-    return selected_times, selected_scenes
+    # 숏츠 원본 씬 순서로 재정렬
+    selected.sort(key=lambda x: x[0])
+    print(f"  → {len(selected)}/{len(pairs)}개 선택 (숏츠 순서로 재정렬)")
+    return [x[1] for x in selected], [x[2] for x in selected]
 
 # ── 썸네일 추출 ───────────────────────────────────────────────────────────────
 

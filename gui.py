@@ -180,19 +180,19 @@ class App(ctk.CTk, TkinterDnD.DnDWrapper):
 
     # ── Logging ─────────────────────────────────────────────────────────────
 
-    def _log(self, msg):
-        self.log_box.configure(state="normal")
-        self.log_box.insert("end", msg + "\n")
-        self.log_box.see("end")
-        self.log_box.configure(state="disabled")
-
     def _poll_log(self):
+        msgs = []
         try:
-            while True:
-                self._log(self.log_queue.get_nowait())
+            for _ in range(30):
+                msgs.append(self.log_queue.get_nowait())
         except queue.Empty:
             pass
-        self.after(80, self._poll_log)
+        if msgs:
+            self.log_box.configure(state="normal")
+            self.log_box.insert("end", "\n".join(msgs) + "\n")
+            self.log_box.see("end")
+            self.log_box.configure(state="disabled")
+        self.after(100, self._poll_log)
 
     # ── Run ─────────────────────────────────────────────────────────────────
 

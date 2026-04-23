@@ -61,23 +61,23 @@ header h1{{font-size:13px;color:#fff;font-weight:600}}
 header .meta{{font-size:10px;color:#444;text-align:right;line-height:1.7}}
 .main{{display:flex;flex:1;overflow:hidden;min-height:0}}
 .table-wrap{{flex:1;overflow-y:auto;border-right:1px solid #252525}}
-img.thumb{{height:40px;border-radius:3px;vertical-align:middle;margin-right:5px;object-fit:cover}}
+img.thumb{{height:64px;border-radius:4px;vertical-align:middle;margin-right:6px;object-fit:cover}}
 table{{width:100%;border-collapse:collapse;font-size:11px}}
 th{{background:#1c1c1c;padding:5px 10px;color:#555;font-weight:500;position:sticky;top:0;text-align:left;white-space:nowrap}}
-td{{padding:4px 10px;border-bottom:1px solid #1d1d1d;white-space:nowrap}}
+td{{padding:6px 10px;border-bottom:1px solid #1d1d1d;white-space:nowrap}}
 td.num{{color:#444;text-align:center;width:32px}}
-td.ts{{color:#999;font-variant-numeric:tabular-nums}}
+td.ts{{color:#999;font-variant-numeric:tabular-nums;vertical-align:middle}}
 td.na{{color:#333}}
 th.shorts{{color:#a78bfa}}
 th.final{{color:#f59e0b}}
 tr:hover td{{background:#1a1a1a}}
-.players{{width:230px;flex-shrink:0;display:flex;flex-direction:column;gap:6px;padding:6px;overflow-y:auto;background:#111}}
+.players{{width:320px;flex-shrink:0;display:flex;flex-direction:column;gap:6px;padding:6px;overflow-y:auto;background:#111}}
 .cell{{display:flex;flex-direction:column;background:#1c1c1c;border-radius:8px;overflow:hidden;border:2px solid #2a2a2a;flex-shrink:0}}
 .cell.ref{{border-color:#555}}.cell.final{{border-color:#f59e0b}}
 .lbl{{padding:5px 8px;font-size:11px;text-align:center;background:#181818;flex-shrink:0;line-height:1.4}}
 .cell.ref .lbl{{color:#aaa}}.cell.final .lbl{{color:#f59e0b}}
 .lbl small{{display:block;color:#3a3a3a;font-size:10px}}
-video{{width:100%;height:190px;background:#000;display:block;object-fit:contain}}
+video{{width:100%;height:260px;background:#000;display:block;object-fit:contain}}
 .vc{{padding:5px 6px;background:#161616;display:flex;flex-direction:column;gap:3px}}
 .sr{{display:flex;align-items:center;gap:4px}}
 .t{{font-size:9px;color:#555;min-width:38px;font-variant-numeric:tabular-nums}}

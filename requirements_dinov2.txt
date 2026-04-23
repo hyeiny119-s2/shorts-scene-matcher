@@ -1,0 +1,11 @@
+scenedetect
+opencv-python-headless
+opencv-contrib-python-headless
+moviepy
+numpy<2
+librosa
+scipy
+transformers>=4.38.0
+Pillow
+accelerate
+# torch / torchvision 은 pytorch/pytorch 베이스 이미지에 이미 포함

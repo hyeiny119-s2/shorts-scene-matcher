@@ -61,11 +61,12 @@ def generate_report(prefix, shorts_file, out_dir,
 <title>{prefix} 리포트</title>
 <style>
 *{{box-sizing:border-box;margin:0;padding:0}}
-body{{background:#111;color:#eee;font-family:'Segoe UI',sans-serif;min-height:100vh;display:flex;flex-direction:column}}
+body{{background:#111;color:#eee;font-family:'Segoe UI',sans-serif;height:100vh;display:flex;flex-direction:column;overflow:hidden}}
 header{{padding:9px 18px;background:#1a1a1a;border-bottom:1px solid #252525;display:flex;align-items:center;justify-content:space-between;flex-shrink:0}}
 header h1{{font-size:13px;color:#fff;font-weight:600}}
 header .meta{{font-size:10px;color:#444;text-align:right;line-height:1.7}}
-.table-wrap{{overflow-y:auto;max-height:220px;border-bottom:1px solid #252525;flex-shrink:0}}
+.main{{display:flex;flex:1;overflow:hidden;min-height:0}}
+.table-wrap{{flex:1;overflow-y:auto;border-right:1px solid #252525}}
 img.thumb{{height:40px;border-radius:3px;vertical-align:middle;margin-right:5px;object-fit:cover}}
 table{{width:100%;border-collapse:collapse;font-size:11px}}
 th{{background:#1c1c1c;padding:5px 10px;color:#555;font-weight:500;position:sticky;top:0;text-align:left;white-space:nowrap}}
@@ -78,26 +79,26 @@ th.audio{{color:#3b82f6}}td.audio{{color:#3b82f6}}
 th.visual{{color:#10b981}}td.visual{{color:#10b981}}
 th.final{{color:#f59e0b}}td.final{{color:#f59e0b}}
 tr:hover td{{background:#1a1a1a}}
-.grid{{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;padding:8px;flex:1}}
-.cell{{display:flex;flex-direction:column;background:#1c1c1c;border-radius:8px;overflow:hidden;border:2px solid #2a2a2a}}
-.cell.ref{{border-color:#555}}.cell.visual{{border-color:#10b981}}.cell.final{{border-color:#f59e0b}}
-.lbl{{padding:6px 8px;font-size:11px;text-align:center;background:#181818;flex-shrink:0;line-height:1.5}}
-.cell.ref .lbl{{color:#aaa}}.cell.visual .lbl{{color:#10b981}}.cell.final .lbl{{color:#f59e0b}}
+.players{{width:230px;flex-shrink:0;display:flex;flex-direction:column;gap:6px;padding:6px;overflow-y:auto;background:#111}}
+.cell{{display:flex;flex-direction:column;background:#1c1c1c;border-radius:8px;overflow:hidden;border:2px solid #2a2a2a;flex-shrink:0}}
+.cell.ref{{border-color:#555}}.cell.final{{border-color:#f59e0b}}
+.lbl{{padding:5px 8px;font-size:11px;text-align:center;background:#181818;flex-shrink:0;line-height:1.4}}
+.cell.ref .lbl{{color:#aaa}}.cell.final .lbl{{color:#f59e0b}}
 .lbl small{{display:block;color:#3a3a3a;font-size:10px}}
-video{{width:100%;background:#000;display:block;object-fit:contain;aspect-ratio:9/16}}
-.vc{{padding:6px 8px;background:#161616;display:flex;flex-direction:column;gap:5px}}
-.sr{{display:flex;align-items:center;gap:6px}}
-.t{{font-size:10px;color:#555;min-width:46px;font-variant-numeric:tabular-nums}}
+video{{width:100%;height:190px;background:#000;display:block;object-fit:contain}}
+.vc{{padding:5px 6px;background:#161616;display:flex;flex-direction:column;gap:3px}}
+.sr{{display:flex;align-items:center;gap:4px}}
+.t{{font-size:9px;color:#555;min-width:38px;font-variant-numeric:tabular-nums}}
 .t.r{{text-align:right}}
-input[type=range]{{flex:1;-webkit-appearance:none;height:4px;border-radius:2px;cursor:pointer;outline:none}}
-input[type=range]::-webkit-slider-thumb{{-webkit-appearance:none;width:12px;height:12px;border-radius:50%;background:#fff;cursor:pointer}}
-.br{{display:flex;align-items:center;justify-content:center;gap:5px}}
-.btn{{background:#2a2a2a;border:none;color:#999;padding:4px 9px;border-radius:5px;cursor:pointer;font-size:11px}}
+input[type=range]{{flex:1;-webkit-appearance:none;height:3px;border-radius:2px;cursor:pointer;outline:none}}
+input[type=range]::-webkit-slider-thumb{{-webkit-appearance:none;width:10px;height:10px;border-radius:50%;background:#fff;cursor:pointer}}
+.br{{display:flex;align-items:center;justify-content:center;gap:3px}}
+.btn{{background:#2a2a2a;border:none;color:#999;padding:3px 6px;border-radius:5px;cursor:pointer;font-size:10px}}
 .btn:hover{{background:#363636;color:#fff}}
-.btn.p{{background:#4a9eff;color:#fff;min-width:70px}}
+.btn.p{{background:#4a9eff;color:#fff;min-width:58px}}
 .btn.p:hover{{background:#3a8eef}}
 .btn.on{{background:#383838;color:#fff}}
-select{{background:#2a2a2a;color:#999;border:none;padding:4px 7px;border-radius:5px;cursor:pointer;font-size:11px}}
+select{{background:#2a2a2a;color:#999;border:none;padding:3px 5px;border-radius:5px;cursor:pointer;font-size:10px}}
 </style>
 </head>
 <body>
@@ -105,6 +106,7 @@ select{{background:#2a2a2a;color:#999;border:none;padding:4px 7px;border-radius:
   <h1>📊 {prefix} — 매칭 결과 리포트</h1>
   <div class="meta">생성: {now}<br>숏츠: {os.path.basename(shorts_file)} &nbsp;|&nbsp; threshold: {args.threshold} &nbsp;|&nbsp; buffer: {args.buffer}s</div>
 </header>
+<div class="main">
 <div class="table-wrap">
   <table>
     <thead><tr>
@@ -116,7 +118,7 @@ select{{background:#2a2a2a;color:#999;border:none;padding:4px 7px;border-radius:
     <tbody>{rows}</tbody>
   </table>
 </div>
-<div class="grid">
+<div class="players">
   <div class="cell ref">
     <div class="lbl">🎬 레퍼런스 숏츠<small>{os.path.basename(shorts_file)}</small></div>
     <video id="v0" src="{shorts_rel}" preload="metadata"></video>
@@ -153,6 +155,7 @@ select{{background:#2a2a2a;color:#999;border:none;padding:4px 7px;border-radius:
       </div>
     </div>
   </div>
+</div>
 </div>
 <script>
 const V=[0,1].map(i=>document.getElementById('v'+i));

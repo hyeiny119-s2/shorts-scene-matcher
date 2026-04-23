@@ -28,10 +28,9 @@ FEAT_DIM             = 768   # DINOv2-Base
 
 DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-import threading as _threading
-_stop_event = _threading.Event()
-_READER_SENTINEL = None  # pipeline sentinel
-_progress   = 0.0
+_stop_event      = threading.Event()
+_READER_SENTINEL = object()  # pipeline sentinel (None 충돌 방지)
+_progress        = 0.0
 
 class StopProcessing(Exception):
     pass
@@ -239,22 +238,30 @@ def precompute_movie_features(movie_path, sw, sh, model, progress_cb=None):
 
     # ── GPU 처리 (메인 스레드) ─────────────────────────────────────────────────
     processed = 0
-    while True:
-        item = batch_q.get()
-        if item is _READER_SENTINEL:
-            break
-        _check_stop()
-        fidxs, crops = item
-        # crops 순서: [f0_pos0, f0_pos1, f0_pos2, f1_pos0, ...] → 전체 1번 GPU 호출
-        feats = frames_to_features(crops, model)   # (B*n_pos, FEAT_DIM)
-        for j, fi in enumerate(fidxs):
-            for k, pos in enumerate(CROP_H_POSITIONS):
-                movie_feats[pos][fi] = feats[j * n_pos + k]
-        processed += len(fidxs)
-        if progress_cb and total > 0:
-            progress_cb(processed * step / total)
-        pct = processed * step / total * 100 if total > 0 else 0.0
-        print(f"  ... {min(processed * step, total)}/{total} ({pct:.1f}%)", end='\r')
+    try:
+        while True:
+            item = batch_q.get()
+            if item is _READER_SENTINEL:
+                break
+            _check_stop()
+            fidxs, crops = item
+            # crops 순서: [f0_pos0, f0_pos1, f0_pos2, f1_pos0, ...] → 전체 1번 GPU 호출
+            feats = frames_to_features(crops, model)   # (B*n_pos, FEAT_DIM)
+            for j, fi in enumerate(fidxs):
+                for k, pos in enumerate(CROP_H_POSITIONS):
+                    movie_feats[pos][fi] = feats[j * n_pos + k]
+            processed += len(fidxs)
+            if progress_cb and total > 0:
+                progress_cb(processed * step / total)
+            pct = processed * step / total * 100 if total > 0 else 0.0
+            print(f"  ... {min(processed * step, total)}/{total} ({pct:.1f}%)", end='\r')
+    finally:
+        # stop 발생 시 큐를 비워 reader 스레드가 블록 해제되도록
+        while True:
+            try:
+                batch_q.get_nowait()
+            except queue.Empty:
+                break
 
     t.join()
     print(f"  ... {total}/{total} (100.0%)")
@@ -264,11 +271,11 @@ def precompute_movie_features(movie_path, sw, sh, model, progress_cb=None):
 def find_timestamps_by_visual(scene_feats, movie_feats, fps, audio_times, audio_confs,
                                search_window, min_sim=0.0):
     """
-    CLIP ViT-B/32 코사인 유사도 기반 최적 프레임 탐색
+    DINOv2 코사인 유사도 기반 최적 프레임 탐색
     오디오 신뢰도 낮은 씬은 search_window 2배 적용
     min_sim 미만이면 None 반환
     """
-    print(f"\n👁️  [3/3] 비주얼 CLIP 매칭 중 (±{search_window}s, 3방향 크롭, min_sim={min_sim})...")
+    print(f"\n👁️  [3/3] 비주얼 DINOv2 매칭 중 (±{search_window}s, 3방향 크롭, min_sim={min_sim})...")
     all_fidxs = sorted(next(iter(movie_feats.values())).keys())
 
     results = []
@@ -499,7 +506,7 @@ def main():
             audio_times, audio_confs, _ = find_timestamps_by_audio(
                 scenes, shorts_audio, movie_audio)
 
-        # 2. 비주얼 CLIP 매칭
+        # 2. 비주얼 DINOv2 매칭
         _set_progress(0.15)
         movie_feats, movie_fps, _ = precompute_movie_features(
             movie_file, sw, sh, model,
@@ -522,35 +529,30 @@ def main():
 
         # 4. 단조 시간순 제약
         if args.monotonic:
-            vis_times,  vis_scenes  = apply_monotonic_constraint(
-                visual_times, scenes, min_gap=args.gap, buffer=args.buffer)
             mono_times, mono_scenes = apply_monotonic_constraint(
-                final_times,  scenes, min_gap=args.gap, buffer=args.buffer)
+                final_times, scenes, min_gap=args.gap, buffer=args.buffer)
         else:
-            vis_times,  vis_scenes  = visual_times, scenes
-            mono_times, mono_scenes = final_times,  scenes
+            mono_times, mono_scenes = final_times, scenes
 
         # 렌더링
         _set_progress(0.84)
         movie_clip = VideoFileClip(movie_file)
         try:
-            render("비주얼 CNN",  vis_times,  vis_scenes,  movie_clip,
-                   os.path.join(out_dir, f"{prefix}_visual.mp4"), args.buffer)
-            _set_progress(0.91)
-            render("Final",       mono_times, mono_scenes, movie_clip,
-                   os.path.join(out_dir, f"{prefix}_final.mp4"),  args.buffer)
+            render("Final", mono_times, mono_scenes, movie_clip,
+                   os.path.join(out_dir, f"{prefix}_final.mp4"), args.buffer)
             _set_progress(0.96)
         finally:
             movie_clip.close()
 
         print("\n🖼️  썸네일 추출 중...")
-        visual_thumbs = extract_thumbnails(movie_file, visual_times, out_dir, prefix, "visual")
-        final_thumbs  = extract_thumbnails(movie_file, final_times,  out_dir, prefix, "final")
+        shorts_times  = [(s + e) / 2 for s, e in scenes]
+        shorts_thumbs = extract_thumbnails(shorts_file, shorts_times, out_dir, prefix, "shorts")
+        final_thumbs  = extract_thumbnails(movie_file,  final_times,  out_dir, prefix, "final")
 
         _set_progress(0.99)
         generate_report(prefix, shorts_file, out_dir,
                         scenes, audio_times, visual_times, final_times, args,
-                        visual_thumbs, final_thumbs)
+                        shorts_thumbs, final_thumbs)
         _set_progress(1.0)
 
 if __name__ == "__main__":

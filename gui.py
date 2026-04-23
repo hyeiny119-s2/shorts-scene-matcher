@@ -285,7 +285,7 @@ class App(ctk.CTk, TkinterDnD.DnDWrapper):
 
         logging.raiseExceptions = False
         os.environ.setdefault("HF_HUB_DISABLE_SYMLINKS_WARNING", "1")
-        warnings.filterwarnings("ignore", category=UserWarning, module="open_clip")
+        warnings.filterwarnings("ignore", category=UserWarning, module="transformers")
         warnings.filterwarnings("ignore", category=UserWarning, module="huggingface_hub")
 
         sys.stdout = sys.stderr = QueueStream(self.log_queue)

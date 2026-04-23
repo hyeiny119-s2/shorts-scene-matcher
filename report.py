@@ -17,7 +17,6 @@ def generate_report(prefix, shorts_file, out_dir,
 
     # HTML과 mp4가 같은 폴더 → 파일명만 사용
     shorts_rel = shorts_basename
-    visual_rel = f"{prefix}_visual.mp4"
     final_rel  = f"{prefix}_final.mp4"
 
     def fmt(s):
@@ -27,9 +26,6 @@ def generate_report(prefix, shorts_file, out_dir,
         m = int((s % 3600) // 60)
         sec = s % 60
         return f"{h:02d}:{m:02d}:{sec:05.2f}"
-
-    def td(t):
-        return f'<td class="ts">{fmt(t)}</td>' if t is not None else '<td class="na">—</td>'
 
     def td_thumb(t, thumb=None):
         if t is None:
@@ -71,12 +67,9 @@ th{{background:#1c1c1c;padding:5px 10px;color:#555;font-weight:500;position:stic
 td{{padding:4px 10px;border-bottom:1px solid #1d1d1d;white-space:nowrap}}
 td.num{{color:#444;text-align:center;width:32px}}
 td.ts{{color:#999;font-variant-numeric:tabular-nums}}
-td.dur{{color:#555}}
 td.na{{color:#333}}
-th.shorts{{color:#a78bfa}}td.shorts{{color:#a78bfa}}
-th.audio{{color:#3b82f6}}td.audio{{color:#3b82f6}}
-th.visual{{color:#10b981}}td.visual{{color:#10b981}}
-th.final{{color:#f59e0b}}td.final{{color:#f59e0b}}
+th.shorts{{color:#a78bfa}}
+th.final{{color:#f59e0b}}
 tr:hover td{{background:#1a1a1a}}
 .players{{width:230px;flex-shrink:0;display:flex;flex-direction:column;gap:6px;padding:6px;overflow-y:auto;background:#111}}
 .cell{{display:flex;flex-direction:column;background:#1c1c1c;border-radius:8px;overflow:hidden;border:2px solid #2a2a2a;flex-shrink:0}}

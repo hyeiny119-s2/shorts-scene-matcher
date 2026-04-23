@@ -111,12 +111,6 @@ def ncc_topk(movie_audio, scene_audio, k=8, gap_s=30.0):
         ncc_copy[lo:hi] = -np.inf
     return peaks  # sorted by NCC score desc
 
-def ncc_match(movie_audio, scene_audio):
-    peaks = ncc_topk(movie_audio, scene_audio, k=1)
-    if not peaks:
-        return None, 0.0
-    return peaks[0]
-
 def find_timestamps_by_audio(shorts_scenes, shorts_audio, movie_audio):
     print("\n🎵 [1/3] 오디오 NCC 매칭 중...")
     times, confs, all_candidates = [], [], []
@@ -129,7 +123,8 @@ def find_timestamps_by_audio(shorts_scenes, shorts_audio, movie_audio):
         candidates = ncc_topk(movie_audio, scene, k=8)
         t, conf = candidates[0] if candidates else (None, 0.0)
         warn = "  ⚠️ 낮은 신뢰도" if conf < AUDIO_CONF_THRESHOLD else ""
-        print(f"  - 씬 {i+1}: {format_time(t)}  (신뢰도 {conf:.1f}){warn}")
+        t_str = format_time(t) if t is not None else "—"
+        print(f"  - 씬 {i+1}: {t_str}  (신뢰도 {conf:.1f}){warn}")
         times.append(t); confs.append(conf); all_candidates.append(candidates)
     return times, confs, all_candidates
 
@@ -197,7 +192,7 @@ def prepare_scene_features(scenes, shorts_path, sw, sh, model):
 def precompute_movie_features(movie_path, sw, sh, model, progress_cb=None):
     """
     영화 전체 1회 순차 스캔 → GPU 배치로 feature 추출
-    {crop_pos: {frame_idx: feature_vector (2048,)}}
+    {crop_pos: {frame_idx: feature_vector (512,)}}
     """
     print(f"\n🖥️  [2/3] 영화 CNN feature 추출 중 ({DEVICE})...")
     cap   = cv2.VideoCapture(movie_path)
@@ -230,7 +225,8 @@ def precompute_movie_features(movie_path, sw, sh, model, progress_cb=None):
                 flush()
                 pending_fidxs.clear()
         if fidx % (step * 300) == 0:
-            print(f"  ... {fidx}/{total} ({fidx/total*100:.1f}%)", end='\r')
+            pct = fidx / total * 100 if total > 0 else 0.0
+            print(f"  ... {fidx}/{total} ({pct:.1f}%)", end='\r')
             if progress_cb and total > 0:
                 progress_cb(fidx / total)
         fidx += 1
@@ -479,7 +475,7 @@ def main():
 
         # 2. 비주얼 CLIP 매칭
         _set_progress(0.15)
-        movie_feats, movie_fps, movie_duration = precompute_movie_features(
+        movie_feats, movie_fps, _ = precompute_movie_features(
             movie_file, sw, sh, model,
             progress_cb=lambda p: _set_progress(0.15 + 0.60 * p))
         _set_progress(0.75)

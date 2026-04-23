@@ -256,7 +256,7 @@ class App(ctk.CTk, TkinterDnD.DnDWrapper):
 
     def _worker(self):
         import main as m
-        import logging, warnings
+        import logging, warnings, time
 
         class QueueStream:
             def __init__(self, q):
@@ -271,6 +271,7 @@ class App(ctk.CTk, TkinterDnD.DnDWrapper):
                 pass
 
         m._stop_event.clear()
+        _t0 = time.time()
 
         # 원본 저장 먼저 → devnull 패치 전에 저장해야 복원이 정확함
         old_out, old_err = sys.stdout, sys.stderr
@@ -289,12 +290,17 @@ class App(ctk.CTk, TkinterDnD.DnDWrapper):
 
         sys.stdout = sys.stderr = QueueStream(self.log_queue)
 
+        def _elapsed():
+            s = int(time.time() - _t0)
+            h, m_, s = s // 3600, (s % 3600) // 60, s % 60
+            return f"{h}:{m_:02d}:{s:02d}" if h else f"{m_}분 {s}초"
+
         try:
             sys.argv = self._build_argv("cuda")
             m.main()
-            self.log_queue.put("✅ 완료!")
+            self.log_queue.put(f"✅ 완료! (소요 시간: {_elapsed()})")
         except m.StopProcessing:
-            self.log_queue.put("⛔ 처리가 중단되었습니다.")
+            self.log_queue.put(f"⛔ 처리가 중단되었습니다. (소요 시간: {_elapsed()})")
         except Exception as e:
             cuda_err = any(k in str(e).lower() for k in ("cuda", "out of memory", "gpu"))
             if cuda_err:
@@ -303,9 +309,9 @@ class App(ctk.CTk, TkinterDnD.DnDWrapper):
                     m._stop_event.clear()
                     sys.argv = self._build_argv("cpu")
                     m.main()
-                    self.log_queue.put("✅ 완료! (CPU 사용)")
+                    self.log_queue.put(f"✅ 완료! (CPU 사용, 소요 시간: {_elapsed()})")
                 except m.StopProcessing:
-                    self.log_queue.put("⛔ 처리가 중단되었습니다.")
+                    self.log_queue.put(f"⛔ 처리가 중단되었습니다. (소요 시간: {_elapsed()})")
                 except Exception:
                     self.log_queue.put(f"❌ 오류:\n{traceback.format_exc()}")
             else:

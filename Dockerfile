@@ -1,21 +1,19 @@
-# PyTorch + CUDA 12.1 베이스 (torch/torchvision 이미 포함)
-FROM pytorch/pytorch:2.2.0-cuda12.1-cudnn8-runtime
-
-RUN apt-get update && apt-get install -y \
-    ffmpeg \
-    libsm6 \
-    libxext6 \
-    libgl1 \
-    && rm -rf /var/lib/apt/lists/*
+FROM pytorch/pytorch:2.3.0-cuda12.1-cudnn8-runtime
 
 WORKDIR /app
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ffmpeg \
+    libgl1-mesa-glx \
+    libglib2.0-0 \
+    && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
-# CLIP ViT-B/32 가중치 빌드 시 미리 다운로드 (실행마다 재다운로드 방지)
-RUN python -c "import open_clip; open_clip.create_model_and_transforms('ViT-B-32', pretrained='openai')"
+# DINOv2-Base 모델은 첫 실행 시 자동 다운로드 (~330MB)
+# 캐시 유지하려면: -v ~/.cache/huggingface:/root/.cache/huggingface
 
-CMD ["python", "main.py"]
+ENTRYPOINT ["python", "main.py"]

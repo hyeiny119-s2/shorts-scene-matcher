@@ -5,5 +5,7 @@ moviepy
 numpy<2
 librosa
 scipy
-open_clip_torch
+transformers>=4.38.0,<5.0.0
+Pillow
+accelerate
 # torch / torchvision 은 pytorch/pytorch 베이스 이미지에 이미 포함

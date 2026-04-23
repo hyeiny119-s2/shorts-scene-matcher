@@ -6,9 +6,13 @@ import os
 import sys
 import subprocess
 import tempfile
+import queue
+import threading
 import torch
 import torch.nn.functional as F
-import open_clip
+from concurrent.futures import ThreadPoolExecutor
+from transformers import AutoImageProcessor, AutoModel
+from PIL import Image as PILImage
 from scenedetect import detect, AdaptiveDetector
 from moviepy import VideoFileClip, concatenate_videoclips
 from report import generate_report
@@ -20,12 +24,13 @@ FRAME_POSITIONS      = [0.1, 0.25, 0.5, 0.75, 0.9]
 CROP_H_POSITIONS     = [0.25, 0.5, 0.75]
 VISUAL_FPS_SAMPLE    = 3
 BATCH_SIZE           = 64
-FEAT_DIM             = 512   # CLIP ViT-B/32
+FEAT_DIM             = 768   # DINOv2-Base
 
 DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 import threading as _threading
 _stop_event = _threading.Event()
+_READER_SENTINEL = None  # pipeline sentinel
 _progress   = 0.0
 
 class StopProcessing(Exception):
@@ -38,10 +43,6 @@ def _check_stop():
 def _set_progress(val):
     global _progress
     _progress = min(max(float(val), 0.0), 1.0)
-
-# CLIP 정규화 상수 — main()에서 DEVICE 확정 후 재초기화
-_IMG_MEAN = torch.tensor([0.48145466, 0.4578275,  0.40821073]).view(3, 1, 1)
-_IMG_STD  = torch.tensor([0.26862954, 0.26130258, 0.27577711]).view(3, 1, 1)
 
 # ── 공통 유틸 ────────────────────────────────────────────────────────────────
 
@@ -128,38 +129,39 @@ def find_timestamps_by_audio(shorts_scenes, shorts_audio, movie_audio):
         times.append(t); confs.append(conf); all_candidates.append(candidates)
     return times, confs, all_candidates
 
-# ── 비주얼 매칭: CLIP ViT-B/32 (GPU) ────────────────────────────────────────
+# ── 비주얼 매칭: DINOv2-Base (GPU) ──────────────────────────────────────────
 #
-# pHash(64비트) 대비 CLIP ViT-B/32 (512-dim L2-normalized):
-#   → 시맨틱 장면 이해 수준의 feature → 구별력 압도적 향상
+# CLIP 대비 DINOv2 (768-dim L2-normalized, self-supervised):
+#   → 텍스트 없이 순수 시각 유사성 학습 → 장면 매칭에 더 특화
 #   → GPU 배치 처리로 2시간 영화도 수십 초 내 완료
-#   → 코사인 유사도 search: (M, 512) @ (512, R) → 즉시 결과
+#   → 코사인 유사도 search: (M, 768) @ (768, R) → 즉시 결과
 #
 # 좌/중/우 크롭 유지:
 #   → auto-framing 숏츠 (피사체가 중앙이 아닐 때) 대응
 
+class DINOv2Extractor:
+    """DINOv2-Base wrapper — encode_image(frames_bgr) → (N, 768) numpy"""
+    def __init__(self, model_name='facebook/dinov2-base'):
+        self.processor = AutoImageProcessor.from_pretrained(model_name)
+        self.model     = AutoModel.from_pretrained(model_name).eval().to(DEVICE)
+
+    @torch.no_grad()
+    def encode_image(self, frames_bgr):
+        pil_imgs = [PILImage.fromarray(cv2.cvtColor(f, cv2.COLOR_BGR2RGB))
+                    for f in frames_bgr]
+        inputs = self.processor(images=pil_imgs, return_tensors="pt")
+        inputs = {k: v.to(DEVICE) for k, v in inputs.items()}
+        feats  = self.model(**inputs).last_hidden_state[:, 0, :]  # CLS token
+        return F.normalize(feats, dim=1)
+
 def build_feature_extractor():
-    """CLIP ViT-B/32 visual encoder → 512-dim features"""
-    model, _, _ = open_clip.create_model_and_transforms('ViT-B-32', pretrained='openai')
-    return model.eval().to(DEVICE)
+    """DINOv2-Base visual encoder → 768-dim features"""
+    return DINOv2Extractor()
 
 @torch.no_grad()
 def frames_to_features(frames_bgr, model):
-    """
-    list of BGR numpy arrays → (N, FEAT_DIM) float32 L2-normalized features
-    CLIP ViT-B/32 GPU 배치 forward pass
-    """
-    tensors = []
-    for f in frames_bgr:
-        rgb = cv2.cvtColor(f, cv2.COLOR_BGR2RGB)
-        t   = torch.from_numpy(
-            cv2.resize(rgb, (224, 224)).astype(np.float32) / 255.0
-        ).permute(2, 0, 1).to(DEVICE)
-        tensors.append((t - _IMG_MEAN) / _IMG_STD)
-
-    batch = torch.stack(tensors)            # (N, 3, 224, 224)
-    feats = model.encode_image(batch)       # (N, 512)
-    feats = F.normalize(feats, dim=1)
+    """list of BGR numpy arrays → (N, FEAT_DIM) float32 L2-normalized features"""
+    feats = model.encode_image(frames_bgr)
     return feats.cpu().numpy().astype(np.float32)
 
 def crop_frame(frame, sw, sh, h_pos=0.5):
@@ -192,51 +194,72 @@ def prepare_scene_features(scenes, shorts_path, sw, sh, model):
 def precompute_movie_features(movie_path, sw, sh, model, progress_cb=None):
     """
     영화 전체 1회 순차 스캔 → GPU 배치로 feature 추출
-    {crop_pos: {frame_idx: feature_vector (512,)}}
+    {crop_pos: {frame_idx: feature_vector (768,)}}
+
+    최적화:
+    - 3 crop을 하나의 GPU 배치로 합쳐 커널 호출 3× → 1×
+    - 프레임 읽기(CPU/I/O) ↔ GPU 처리를 큐로 파이프라인
     """
-    print(f"\n🖥️  [2/3] 영화 CNN feature 추출 중 ({DEVICE})...")
+    print(f"\n🖥️  [2/3] 영화 feature 추출 중 ({DEVICE})...")
     cap   = cv2.VideoCapture(movie_path)
     fps   = cap.get(cv2.CAP_PROP_FPS)
     total = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
     step  = max(1, int(fps / VISUAL_FPS_SAMPLE))
+    n_pos = len(CROP_H_POSITIONS)
 
-    movie_feats    = {pos: {} for pos in CROP_H_POSITIONS}
-    pending_frames = {pos: [] for pos in CROP_H_POSITIONS}
-    pending_fidxs  = []
-    fidx           = 0
+    movie_feats = {pos: {} for pos in CROP_H_POSITIONS}
+    batch_q     = queue.Queue(maxsize=4)  # GPU가 처리할 배치 큐
 
-    def flush():
-        for pos in CROP_H_POSITIONS:
-            feats = frames_to_features(pending_frames[pos], model)
-            for j, fi in enumerate(pending_fidxs):
-                movie_feats[pos][fi] = feats[j]
-            pending_frames[pos].clear()
+    # ── 프레임 읽기 스레드 (CPU/I/O) ──────────────────────────────────────────
+    def reader():
+        pending_crops = []   # [frame_crop_0, frame_crop_1, ..., frame_crop_n] per sampled frame
+        pending_fidxs = []
+        fidx = 0
+        while True:
+            ret, frame = cap.read()
+            if not ret:
+                break
+            if _stop_event.is_set():
+                break
+            if fidx % step == 0:
+                for pos in CROP_H_POSITIONS:
+                    pending_crops.append(crop_frame(frame, sw, sh, pos))
+                pending_fidxs.append(fidx)
+                if len(pending_fidxs) >= BATCH_SIZE:
+                    batch_q.put((list(pending_fidxs), list(pending_crops)))
+                    pending_crops.clear()
+                    pending_fidxs.clear()
+            fidx += 1
+        if pending_fidxs:
+            batch_q.put((pending_fidxs, pending_crops))
+        batch_q.put(_READER_SENTINEL)
 
+    t = threading.Thread(target=reader, daemon=True)
+    t.start()
+
+    # ── GPU 처리 (메인 스레드) ─────────────────────────────────────────────────
+    processed = 0
     while True:
-        ret, frame = cap.read()
-        if not ret:
+        item = batch_q.get()
+        if item is _READER_SENTINEL:
             break
         _check_stop()
-        if fidx % step == 0:
-            for pos in CROP_H_POSITIONS:
-                pending_frames[pos].append(crop_frame(frame, sw, sh, pos))
-            pending_fidxs.append(fidx)
-            if len(pending_fidxs) >= BATCH_SIZE:
-                flush()
-                pending_fidxs.clear()
-        if fidx % (step * 300) == 0:
-            pct = fidx / total * 100 if total > 0 else 0.0
-            print(f"  ... {fidx}/{total} ({pct:.1f}%)", end='\r')
-            if progress_cb and total > 0:
-                progress_cb(fidx / total)
-        fidx += 1
+        fidxs, crops = item
+        # crops 순서: [f0_pos0, f0_pos1, f0_pos2, f1_pos0, ...] → 전체 1번 GPU 호출
+        feats = frames_to_features(crops, model)   # (B*n_pos, FEAT_DIM)
+        for j, fi in enumerate(fidxs):
+            for k, pos in enumerate(CROP_H_POSITIONS):
+                movie_feats[pos][fi] = feats[j * n_pos + k]
+        processed += len(fidxs)
+        if progress_cb and total > 0:
+            progress_cb(processed * step / total)
+        pct = processed * step / total * 100 if total > 0 else 0.0
+        print(f"  ... {min(processed * step, total)}/{total} ({pct:.1f}%)", end='\r')
 
-    if pending_fidxs:
-        flush()
+    t.join()
     print(f"  ... {total}/{total} (100.0%)")
     cap.release()
-    movie_duration = total / fps
-    return movie_feats, fps, movie_duration
+    return movie_feats, fps, total / fps
 
 def find_timestamps_by_visual(scene_feats, movie_feats, fps, audio_times, audio_confs,
                                search_window, min_sim=0.0):
@@ -399,7 +422,7 @@ def main():
     args = p.parse_args()
 
     # DEVICE 확정 (GUI에서 반복 호출 시 재설정)
-    global DEVICE, _IMG_MEAN, _IMG_STD
+    global DEVICE
     if args.device == 'cpu':
         DEVICE = torch.device('cpu')
     elif args.device == 'cuda':
@@ -410,9 +433,6 @@ def main():
             DEVICE = torch.device('cuda')
     else:
         DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    _IMG_MEAN = torch.tensor([0.48145466, 0.4578275,  0.40821073], device=DEVICE).view(3, 1, 1)
-    _IMG_STD  = torch.tensor([0.26862954, 0.26130258, 0.27577711], device=DEVICE).view(3, 1, 1)
-
     shorts_file = args.shorts
     movies      = args.movie  # list (nargs='+')
 
@@ -437,13 +457,19 @@ def main():
     sw, sh = get_video_size(shorts_file)
     print(f"📐 숏츠 해상도: {sw}×{sh}")
 
-    if not args.visual_only:
-        print("\n📂 숏츠 오디오 로딩 중...")
-        shorts_audio = load_audio(shorts_file)
-
-    print("\n🔧 CLIP ViT-B/32 로딩 중...")
     _set_progress(0.10)
-    model       = build_feature_extractor()
+    if not args.visual_only:
+        # 오디오 로딩과 모델 로딩을 병렬로 실행
+        print("\n📂 숏츠 오디오 로딩 + DINOv2-Base 로딩 중... (병렬)")
+        with ThreadPoolExecutor(max_workers=2) as ex:
+            audio_fut = ex.submit(load_audio, shorts_file)
+            model_fut = ex.submit(build_feature_extractor)
+        shorts_audio = audio_fut.result()
+        model        = model_fut.result()
+    else:
+        print("\n🔧 DINOv2-Base 로딩 중...")
+        model = build_feature_extractor()
+
     scene_feats = prepare_scene_features(scenes, shorts_file, sw, sh, model)
     _set_progress(0.15)
 
@@ -518,14 +544,13 @@ def main():
             movie_clip.close()
 
         print("\n🖼️  썸네일 추출 중...")
-        shorts_times  = [(s + e) / 2 for s, e in scenes]
-        shorts_thumbs = extract_thumbnails(shorts_file, shorts_times, out_dir, prefix, "shorts")
-        final_thumbs  = extract_thumbnails(movie_file,  final_times,  out_dir, prefix, "final")
+        visual_thumbs = extract_thumbnails(movie_file, visual_times, out_dir, prefix, "visual")
+        final_thumbs  = extract_thumbnails(movie_file, final_times,  out_dir, prefix, "final")
 
         _set_progress(0.99)
         generate_report(prefix, shorts_file, out_dir,
                         scenes, audio_times, visual_times, final_times, args,
-                        shorts_thumbs, final_thumbs)
+                        visual_thumbs, final_thumbs)
         _set_progress(1.0)
 
 if __name__ == "__main__":

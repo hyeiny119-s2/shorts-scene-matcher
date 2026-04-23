@@ -41,16 +41,13 @@ def generate_report(prefix, shorts_file, out_dir,
     ft_list = final_thumbs  or [None] * len(scenes)
 
     rows = ""
-    for i, ((s, e), at, vt, ft, sth, fth) in enumerate(
+    for i, ((s, e), _, __, ft, sth, fth) in enumerate(
             zip(scenes, audio_times, visual_times, final_times, st_list, ft_list)):
-        dur = e - s
         rows += f"""
       <tr>
         <td class="num">{i+1}</td>
         {td_thumb(s, sth)}
-        <td class="ts">{fmt(s)}</td><td class="ts">{fmt(e)}</td>
-        <td class="ts dur">{fmt(dur)}</td>
-        {td(at)}{td(vt)}{td_thumb(ft, fth)}
+        {td_thumb(ft, fth)}
       </tr>"""
 
     now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -112,10 +109,7 @@ select{{background:#2a2a2a;color:#999;border:none;padding:3px 5px;border-radius:
 <div class="table-wrap">
   <table>
     <thead><tr>
-      <th>#</th><th class="shorts">레퍼런스</th><th>시작</th><th>종료</th><th>길이</th>
-      <th class="audio">오디오</th>
-      <th class="visual">비주얼</th>
-      <th class="final">Final</th>
+      <th>#</th><th class="shorts">레퍼런스</th><th class="final">Final</th>
     </tr></thead>
     <tbody>{rows}</tbody>
   </table>

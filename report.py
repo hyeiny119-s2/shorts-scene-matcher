@@ -60,18 +60,18 @@ header{{padding:9px 18px;background:#1a1a1a;border-bottom:1px solid #252525;disp
 header h1{{font-size:13px;color:#fff;font-weight:600}}
 header .meta{{font-size:10px;color:#444;text-align:right;line-height:1.7}}
 .main{{display:flex;flex:1;overflow:hidden;min-height:0}}
-.table-wrap{{flex:1;overflow-y:auto;border-right:1px solid #252525}}
-img.thumb{{height:64px;border-radius:4px;vertical-align:middle;margin-right:6px;object-fit:cover}}
-table{{width:100%;border-collapse:collapse;font-size:11px}}
-th{{background:#1c1c1c;padding:5px 10px;color:#555;font-weight:500;position:sticky;top:0;text-align:left;white-space:nowrap}}
-td{{padding:6px 10px;border-bottom:1px solid #1d1d1d;white-space:nowrap}}
-td.num{{color:#444;text-align:center;width:32px}}
-td.ts{{color:#999;font-variant-numeric:tabular-nums;vertical-align:middle}}
+.table-wrap{{flex:2;overflow-y:auto;border-right:1px solid #252525;min-width:0}}
+img.thumb{{height:80px;border-radius:4px;vertical-align:middle;margin-right:8px;object-fit:cover}}
+table{{width:100%;border-collapse:collapse;font-size:12px}}
+th{{background:#1c1c1c;padding:6px 12px;color:#555;font-weight:500;position:sticky;top:0;text-align:left;white-space:nowrap}}
+td{{padding:8px 12px;border-bottom:1px solid #1d1d1d;white-space:nowrap}}
+td.num{{color:#444;text-align:center;width:36px}}
+td.ts{{color:#999;font-variant-numeric:tabular-nums;vertical-align:middle;font-size:12px}}
 td.na{{color:#333}}
 th.shorts{{color:#a78bfa}}
 th.final{{color:#f59e0b}}
 tr:hover td{{background:#1a1a1a}}
-.players{{width:320px;flex-shrink:0;display:flex;flex-direction:column;gap:6px;padding:6px;overflow-y:auto;background:#111}}
+.players{{flex:1;min-width:260px;max-width:480px;flex-shrink:0;display:flex;flex-direction:column;gap:6px;padding:8px;overflow-y:auto;background:#111}}
 .cell{{display:flex;flex-direction:column;background:#1c1c1c;border-radius:8px;overflow:hidden;border:2px solid #2a2a2a;flex-shrink:0}}
 .cell.ref{{border-color:#555}}.cell.final{{border-color:#f59e0b}}
 .lbl{{padding:5px 8px;font-size:11px;text-align:center;background:#181818;flex-shrink:0;line-height:1.4}}

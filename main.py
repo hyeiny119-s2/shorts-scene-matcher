@@ -558,7 +558,7 @@ def main():
 
         _set_progress(0.99)
         generate_report(prefix, shorts_file, out_dir,
-                        scenes, audio_times, visual_times, final_times, args,
+                        scenes, audio_times, visual_times, final_times_for_thumbs, args,
                         shorts_thumbs, final_thumbs)
         _set_progress(1.0)
 

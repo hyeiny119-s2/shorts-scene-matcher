@@ -381,7 +381,7 @@ def render(label, timestamps, shorts_scenes, movie_clip, output_path, buffer):
 def main():
     p = argparse.ArgumentParser()
     p.add_argument('-s', '--shorts',    required=True)
-    p.add_argument('-m', '--movie',     required=True)
+    p.add_argument('-m', '--movie',     nargs='+', required=True)
     p.add_argument('-p', '--prefix',    required=True)
     p.add_argument('-b', '--buffer',    type=float, default=1.0)
     p.add_argument('-t', '--threshold', type=float, default=3.0,
@@ -417,20 +417,20 @@ def main():
     _IMG_MEAN = torch.tensor([0.48145466, 0.4578275,  0.40821073], device=DEVICE).view(3, 1, 1)
     _IMG_STD  = torch.tensor([0.26862954, 0.26130258, 0.27577711], device=DEVICE).view(3, 1, 1)
 
-    shorts_file, movie_file = args.shorts, args.movie
-    if not shorts_file.lower().endswith(SUPPORTED_EXTS) or \
-       not movie_file.lower().endswith(SUPPORTED_EXTS):
+    shorts_file = args.shorts
+    movies      = args.movie  # list (nargs='+')
+
+    if not shorts_file.lower().endswith(SUPPORTED_EXTS):
         print(f"❌ 지원하지 않는 확장자. 지원: {SUPPORTED_EXTS}"); sys.exit(1)
-    if not os.path.exists(shorts_file) or not os.path.exists(movie_file):
-        print("❌ 파일을 찾을 수 없습니다."); sys.exit(1)
+    if not os.path.exists(shorts_file):
+        print("❌ 숏츠 파일을 찾을 수 없습니다."); sys.exit(1)
 
     device_info = f"{DEVICE}"
     if torch.cuda.is_available():
         device_info += f" ({torch.cuda.get_device_name(0)}, {torch.cuda.get_device_properties(0).total_memory // 1024**3}GB)"
     print(f"💻 디바이스: {device_info}")
 
-    prefix  = args.prefix.removesuffix('.mp4')
-    out_dir = os.path.join("data/output", prefix)
+    prefix = args.prefix.removesuffix('.mp4')
 
     _set_progress(0.02)
     scenes = get_shorts_scenes(shorts_file, args.threshold)
@@ -441,79 +441,95 @@ def main():
     sw, sh = get_video_size(shorts_file)
     print(f"📐 숏츠 해상도: {sw}×{sh}")
 
-    # 1. 오디오 NCC (BGM 있는 숏츠는 --visual-only로 생략)
-    if args.visual_only:
-        print("\n⏭️  오디오 매칭 생략 (--visual-only)")
-        n = len(scenes)
-        audio_times     = [None] * n
-        audio_confs     = [0.0]  * n
-        audio_candidates = [[] for _ in range(n)]
-    else:
-        print("\n📂 오디오 로딩 중...")
+    if not args.visual_only:
+        print("\n📂 숏츠 오디오 로딩 중...")
         shorts_audio = load_audio(shorts_file)
-        movie_audio  = load_audio(movie_file)
-        audio_times, audio_confs, audio_candidates = find_timestamps_by_audio(
-            scenes, shorts_audio, movie_audio)
 
-    # 2. ResNet50 CNN 비주얼 매칭 (GPU 배치)
-    #    --visual-only 시 audio_times 전부 None → 전체 스캔
     print("\n🔧 CLIP ViT-B/32 로딩 중...")
     _set_progress(0.10)
     model       = build_feature_extractor()
     scene_feats = prepare_scene_features(scenes, shorts_file, sw, sh, model)
     _set_progress(0.15)
-    movie_feats, movie_fps, movie_duration = precompute_movie_features(
-        movie_file, sw, sh, model,
-        progress_cb=lambda p: _set_progress(0.15 + 0.60 * p))
-    _set_progress(0.75)
-    visual_times = find_timestamps_by_visual(
-        scene_feats, movie_feats, movie_fps, audio_times, audio_confs, args.window,
-        min_sim=args.min_sim)
 
-    _set_progress(0.80)
-    # 3. Final: 오디오 신뢰도 기반 선택
-    #    --visual-only 시 무조건 비주얼 사용
-    final_times = []
-    for at, ac, vt in zip(audio_times, audio_confs, visual_times):
-        if not args.visual_only and at is not None and ac >= AUDIO_CONF_THRESHOLD:
-            final_times.append(at)
-        elif vt is not None:
-            final_times.append(vt)
+    for mi, movie_file in enumerate(movies):
+        if len(movies) > 1:
+            print(f"\n{'='*52}")
+            print(f"📽️  [{mi+1}/{len(movies)}] {os.path.basename(movie_file)}")
+            print(f"{'='*52}")
+
+        if not movie_file.lower().endswith(SUPPORTED_EXTS):
+            print(f"❌ 지원하지 않는 확장자: {movie_file} — 건너뜁니다"); continue
+        if not os.path.exists(movie_file):
+            print(f"❌ 파일 없음: {movie_file} — 건너뜁니다"); continue
+
+        stem    = os.path.splitext(os.path.basename(movie_file))[0]
+        out_dir = os.path.join("data/output", f"{prefix}_{stem}")
+
+        # 1. 오디오 NCC
+        if args.visual_only:
+            print("\n⏭️  오디오 매칭 생략 (--visual-only)")
+            n = len(scenes)
+            audio_times = [None] * n
+            audio_confs = [0.0]  * n
         else:
-            final_times.append(at)
+            print("\n📂 영화 오디오 로딩 중...")
+            movie_audio = load_audio(movie_file)
+            audio_times, audio_confs, _ = find_timestamps_by_audio(
+                scenes, shorts_audio, movie_audio)
 
-    # 4. 단조 시간순 제약: visual/final 모두 적용 (--monotonic 시)
-    if args.monotonic:
-        vis_times,  vis_scenes  = apply_monotonic_constraint(
-            visual_times, scenes, min_gap=args.gap, buffer=args.buffer)
-        mono_times, mono_scenes = apply_monotonic_constraint(
-            final_times,  scenes, min_gap=args.gap, buffer=args.buffer)
-    else:
-        vis_times,  vis_scenes  = visual_times, scenes
-        mono_times, mono_scenes = final_times,  scenes
+        # 2. 비주얼 CLIP 매칭
+        _set_progress(0.15)
+        movie_feats, movie_fps, movie_duration = precompute_movie_features(
+            movie_file, sw, sh, model,
+            progress_cb=lambda p: _set_progress(0.15 + 0.60 * p))
+        _set_progress(0.75)
+        visual_times = find_timestamps_by_visual(
+            scene_feats, movie_feats, movie_fps, audio_times, audio_confs, args.window,
+            min_sim=args.min_sim)
 
-    # 렌더링
-    _set_progress(0.84)
-    movie_clip = VideoFileClip(movie_file)
-    try:
-        render("비주얼 CNN",  vis_times,  vis_scenes,  movie_clip,
-               os.path.join(out_dir, f"{prefix}_visual.mp4"), args.buffer)
-        _set_progress(0.91)
-        render("Final",       mono_times, mono_scenes, movie_clip,
-               os.path.join(out_dir, f"{prefix}_final.mp4"),  args.buffer)
-        _set_progress(0.96)
-    finally:
-        movie_clip.close()
+        _set_progress(0.80)
+        # 3. Final: 오디오/비주얼 선택. 둘 다 실패하면 None → 렌더 스킵
+        final_times = []
+        for at, ac, vt in zip(audio_times, audio_confs, visual_times):
+            if not args.visual_only and at is not None and ac >= AUDIO_CONF_THRESHOLD:
+                final_times.append(at)
+            elif vt is not None:
+                final_times.append(vt)
+            else:
+                final_times.append(None)
 
-    print("\n🖼️  썸네일 추출 중...")
-    visual_thumbs = extract_thumbnails(movie_file, visual_times, out_dir, prefix, "visual")
-    final_thumbs  = extract_thumbnails(movie_file, final_times,  out_dir, prefix, "final")
+        # 4. 단조 시간순 제약
+        if args.monotonic:
+            vis_times,  vis_scenes  = apply_monotonic_constraint(
+                visual_times, scenes, min_gap=args.gap, buffer=args.buffer)
+            mono_times, mono_scenes = apply_monotonic_constraint(
+                final_times,  scenes, min_gap=args.gap, buffer=args.buffer)
+        else:
+            vis_times,  vis_scenes  = visual_times, scenes
+            mono_times, mono_scenes = final_times,  scenes
 
-    _set_progress(0.99)
-    generate_report(prefix, shorts_file, out_dir,
-                    scenes, audio_times, visual_times, final_times, args,
-                    visual_thumbs, final_thumbs)
-    _set_progress(1.0)
+        # 렌더링
+        _set_progress(0.84)
+        movie_clip = VideoFileClip(movie_file)
+        try:
+            render("비주얼 CNN",  vis_times,  vis_scenes,  movie_clip,
+                   os.path.join(out_dir, f"{prefix}_visual.mp4"), args.buffer)
+            _set_progress(0.91)
+            render("Final",       mono_times, mono_scenes, movie_clip,
+                   os.path.join(out_dir, f"{prefix}_final.mp4"),  args.buffer)
+            _set_progress(0.96)
+        finally:
+            movie_clip.close()
+
+        print("\n🖼️  썸네일 추출 중...")
+        visual_thumbs = extract_thumbnails(movie_file, visual_times, out_dir, prefix, "visual")
+        final_thumbs  = extract_thumbnails(movie_file, final_times,  out_dir, prefix, "final")
+
+        _set_progress(0.99)
+        generate_report(prefix, shorts_file, out_dir,
+                        scenes, audio_times, visual_times, final_times, args,
+                        visual_thumbs, final_thumbs)
+        _set_progress(1.0)
 
 if __name__ == "__main__":
     main()

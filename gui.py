@@ -20,7 +20,7 @@ class App(ctk.CTk, TkinterDnD.DnDWrapper):
         self.geometry("700x740")
         self.minsize(620, 600)
 
-        self.file_paths  = {"shorts": "", "movie": ""}
+        self.file_paths  = {"shorts": "", "movie": []}
         self.hint_labels = {}
         self.drop_frames = {}
         self.prefix_var     = ctk.StringVar(value="output")
@@ -56,7 +56,7 @@ class App(ctk.CTk, TkinterDnD.DnDWrapper):
         drop.grid(row=1, column=0, padx=20, pady=4, sticky="ew")
         drop.grid_columnconfigure((0, 1), weight=1)
         self._make_drop_zone(drop, "📱 숏츠 (Shorts)", "shorts", 0)
-        self._make_drop_zone(drop, "🎬 풀영상 (Full Movie)", "movie", 1)
+        self._make_drop_zone(drop, "🎬 풀영상 (여러 개 가능)", "movie", 1)
 
         # Options
         opt = ctk.CTkFrame(self)
@@ -129,29 +129,54 @@ class App(ctk.CTk, TkinterDnD.DnDWrapper):
         self.hint_labels[key] = hint
 
         def on_drop(event):
-            path = event.data.strip()
-            if path.startswith("{") and path.endswith("}"):
-                path = path[1:-1]
-            self._set_file(key, path, frame)
+            if key == "movie":
+                paths = self._parse_paths(event.data)
+            else:
+                data = event.data.strip()
+                paths = [data[1:-1] if data.startswith("{") and data.endswith("}") else data]
+            self._set_file(key, paths, frame)
 
         frame.drop_target_register(DND_FILES)
         frame.dnd_bind("<<Drop>>", on_drop)
         frame.bind("<Button-1>", lambda e: self._browse(key, frame))
         hint.bind("<Button-1>",  lambda e: self._browse(key, frame))
 
-    def _set_file(self, key, path, frame):
-        self.file_paths[key] = path
-        self.hint_labels[key].configure(
-            text=os.path.basename(path), text_color="#ccc")
+    def _parse_paths(self, data):
+        paths, remaining = [], data.strip()
+        while remaining:
+            if remaining.startswith("{"):
+                end = remaining.find("}")
+                if end == -1:
+                    paths.append(remaining[1:]); break
+                paths.append(remaining[1:end])
+                remaining = remaining[end+1:].strip()
+            else:
+                parts = remaining.split(None, 1)
+                paths.append(parts[0])
+                remaining = parts[1].strip() if len(parts) > 1 else ""
+        return [p for p in paths if p]
+
+    def _set_file(self, key, paths, frame):
+        if key == "movie":
+            self.file_paths[key] = paths
+            label = os.path.basename(paths[0]) if len(paths) == 1 else f"{len(paths)}개 파일 선택됨"
+        else:
+            self.file_paths[key] = paths[0] if paths else ""
+            label = os.path.basename(paths[0]) if paths else ""
+        self.hint_labels[key].configure(text=label, text_color="#ccc")
         frame.configure(border_color="#10b981")
 
     def _browse(self, key, frame):
         from tkinter import filedialog
-        path = filedialog.askopenfilename(
-            filetypes=[("Video files", "*.mp4 *.mkv *.avi *.mov *.ts"),
-                       ("All files", "*.*")])
-        if path:
-            self._set_file(key, path, frame)
+        ft = [("Video files", "*.mp4 *.mkv *.avi *.mov *.ts"), ("All files", "*.*")]
+        if key == "movie":
+            paths = filedialog.askopenfilenames(filetypes=ft)
+            if paths:
+                self._set_file(key, list(paths), frame)
+        else:
+            path = filedialog.askopenfilename(filetypes=ft)
+            if path:
+                self._set_file(key, [path], frame)
 
     # ── Logging ─────────────────────────────────────────────────────────────
 
@@ -175,14 +200,15 @@ class App(ctk.CTk, TkinterDnD.DnDWrapper):
         if self.running:
             return
         shorts = self.file_paths["shorts"]
-        movie  = self.file_paths["movie"]
-        if not shorts or not movie:
+        movies = self.file_paths["movie"]
+        if not shorts or not movies:
             self._log("❌ 숏츠와 풀영상을 모두 선택해주세요.")
             return
         if not os.path.exists(shorts):
             self._log(f"❌ 파일 없음: {shorts}"); return
-        if not os.path.exists(movie):
-            self._log(f"❌ 파일 없음: {movie}"); return
+        for m in movies:
+            if not os.path.exists(m):
+                self._log(f"❌ 파일 없음: {m}"); return
 
         self.log_box.configure(state="normal")
         self.log_box.delete("1.0", "end")
@@ -203,8 +229,9 @@ class App(ctk.CTk, TkinterDnD.DnDWrapper):
     def _reset(self):
         if self.running:
             return
+        self.file_paths["shorts"] = ""
+        self.file_paths["movie"]  = []
         for key in ("shorts", "movie"):
-            self.file_paths[key] = ""
             self.hint_labels[key].configure(
                 text="클릭하거나 파일을 드래그", text_color="#555")
         for frame in self.drop_frames.values():
@@ -218,7 +245,7 @@ class App(ctk.CTk, TkinterDnD.DnDWrapper):
     def _build_argv(self, device="auto"):
         argv = ["main.py",
                 "-s", self.file_paths["shorts"],
-                "-m", self.file_paths["movie"],
+                "-m"] + self.file_paths["movie"] + [
                 "-p", self.prefix_var.get().strip() or "output",
                 "--device", device]
         if self.visual_only_var.get():
@@ -314,7 +341,12 @@ class App(ctk.CTk, TkinterDnD.DnDWrapper):
             return
         prefix  = self.prefix_var.get().strip() or "output"
         base    = getattr(sys, "_MEIPASS", os.path.dirname(os.path.abspath(__file__)))
-        out_dir = os.path.join(base, "data", "output", prefix)
+        movies  = self.file_paths["movie"]
+        if len(movies) > 1:
+            out_dir = os.path.join(base, "data", "output")
+        else:
+            stem    = os.path.splitext(os.path.basename(movies[0]))[0] if movies else ""
+            out_dir = os.path.join(base, "data", "output", f"{prefix}_{stem}")
         if os.path.exists(out_dir):
             os.startfile(out_dir)
         else:

@@ -518,13 +518,15 @@ def main():
             movie_clip.close()
 
         print("\n🖼️  썸네일 추출 중...")
-        visual_thumbs = extract_thumbnails(movie_file, visual_times, out_dir, prefix, "visual")
-        final_thumbs  = extract_thumbnails(movie_file, final_times,  out_dir, prefix, "final")
+        shorts_times  = [(s + e) / 2 for s, e in scenes]
+        shorts_thumbs = extract_thumbnails(shorts_file, shorts_times,  out_dir, prefix, "shorts")
+        visual_thumbs = extract_thumbnails(movie_file,  visual_times,  out_dir, prefix, "visual")
+        final_thumbs  = extract_thumbnails(movie_file,  final_times,   out_dir, prefix, "final")
 
         _set_progress(0.99)
         generate_report(prefix, shorts_file, out_dir,
                         scenes, audio_times, visual_times, final_times, args,
-                        visual_thumbs, final_thumbs)
+                        shorts_thumbs, visual_thumbs, final_thumbs)
         _set_progress(1.0)
 
 if __name__ == "__main__":

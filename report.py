@@ -5,7 +5,7 @@ import datetime
 
 def generate_report(prefix, shorts_file, out_dir,
                     scenes, audio_times, visual_times, final_times, args,
-                    visual_thumbs=None, final_thumbs=None):
+                    shorts_thumbs=None, visual_thumbs=None, final_thumbs=None):
     os.makedirs(out_dir, exist_ok=True)
     report_path = os.path.join(out_dir, f"{prefix}_report.html")
 
@@ -37,16 +37,18 @@ def generate_report(prefix, shorts_file, out_dir,
         img = (f'<img src="{thumb}" class="thumb">' if thumb else '')
         return f'<td class="ts">{img}{fmt(t)}</td>'
 
+    st_list = shorts_thumbs or [None] * len(scenes)
     vt_list = visual_thumbs or [None] * len(scenes)
     ft_list = final_thumbs  or [None] * len(scenes)
 
     rows = ""
-    for i, ((s, e), at, vt, ft, vth, fth) in enumerate(
-            zip(scenes, audio_times, visual_times, final_times, vt_list, ft_list)):
+    for i, ((s, e), at, vt, ft, sth, vth, fth) in enumerate(
+            zip(scenes, audio_times, visual_times, final_times, st_list, vt_list, ft_list)):
         dur = e - s
         rows += f"""
       <tr>
         <td class="num">{i+1}</td>
+        {td_thumb(s, sth)}
         <td class="ts">{fmt(s)}</td><td class="ts">{fmt(e)}</td>
         <td class="ts dur">{fmt(dur)}</td>
         {td(at)}{td_thumb(vt, vth)}{td_thumb(ft, fth)}
@@ -75,6 +77,7 @@ td.num{{color:#444;text-align:center;width:32px}}
 td.ts{{color:#999;font-variant-numeric:tabular-nums}}
 td.dur{{color:#555}}
 td.na{{color:#333}}
+th.shorts{{color:#a78bfa}}td.shorts{{color:#a78bfa}}
 th.audio{{color:#3b82f6}}td.audio{{color:#3b82f6}}
 th.visual{{color:#10b981}}td.visual{{color:#10b981}}
 th.final{{color:#f59e0b}}td.final{{color:#f59e0b}}
@@ -110,7 +113,7 @@ select{{background:#2a2a2a;color:#999;border:none;padding:3px 5px;border-radius:
 <div class="table-wrap">
   <table>
     <thead><tr>
-      <th>#</th><th>시작</th><th>종료</th><th>길이</th>
+      <th>#</th><th class="shorts">레퍼런스</th><th>시작</th><th>종료</th><th>길이</th>
       <th class="audio">오디오</th>
       <th class="visual">비주얼</th>
       <th class="final">Final</th>

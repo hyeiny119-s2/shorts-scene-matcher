@@ -22,7 +22,7 @@ AUDIO_SR             = 11025
 AUDIO_CONF_THRESHOLD = 5.0
 FRAME_POSITIONS      = [0.1, 0.25, 0.5, 0.75, 0.9]
 CROP_H_POSITIONS     = [0.25, 0.5, 0.75]
-VISUAL_FPS_SAMPLE    = 3
+VISUAL_FPS_SAMPLE    = 2
 BATCH_SIZE           = 64
 FEAT_DIM             = 384   # DINOv2-Small
 

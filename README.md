@@ -1,89 +1,90 @@
 # ClipTrace
 
-Automatically finds and cuts scenes from a full movie that match your shorts clip.
+숏츠 영상을 넣으면, 원본 영화에서 해당 장면들을 자동으로 찾아서 잘라주는 프로그램입니다.
 
 ---
 
-## Installation
+## 설치 방법
 
-> ⚠️ Only needs to be done once. Requires internet connection / takes about 15–20 minutes.
+> ⚠️ 최초 1회만 하면 됩니다. 인터넷 연결 필요 / 약 15~20분 소요
 
-### Step 1 — Download
+### 1단계 — 프로그램 다운로드
 
-Click the green **Code** button at the top right of this page → **Download ZIP**
+이 페이지 오른쪽 상단의 초록색 **Code** 버튼 클릭 → **Download ZIP** 클릭
 
-Extract the downloaded ZIP file.
-
----
-
-### Step 2 — Install
-
-Inside the extracted folder, **double-click `setup.bat`**.
-
-A black window will appear and install everything automatically. It closes when done.
-
-> 💡 If a "Windows protected your PC" warning appears, click **More info → Run anyway**.
+다운로드된 ZIP 파일을 **압축 해제**합니다.
 
 ---
 
-### Step 3 — Launch
+### 2단계 — 설치
 
-After installation, a **ClipTrace** shortcut will appear on your **Desktop** (and inside the folder).
+압축 해제된 폴더 안에서 **`setup.bat`** 파일을 **더블클릭**합니다.
 
-Double-click it to launch.
+검은 창이 뜨면서 자동으로 설치가 진행됩니다. 완료되면 창이 자동으로 닫힙니다.
 
----
-
-## How to Use
-
-### 1. Select Files
-
-- Drag your short clip into the **📱 Shorts** area on the left (or click to browse)
-- Drag the original movie file into the **🎬 Movie** area on the right
-  - You can add multiple movie files — each will produce its own output
-
-### 2. Set Output Folder Name
-
-Enter a name for the output folder (e.g. `my_movie`)
-
-### 3. Options
-
-| Option | When to use |
-|--------|-------------|
-| **Visual Only** | Check this if your shorts clip has background music (BGM) |
-| **Chronological** | Check this to prevent duplicate scenes in the output (recommended) |
-
-### 4. Run
-
-Click **▶ Run**.
-
-The progress bar will fill as processing continues. Time depends on movie length.
-
-| Environment | Time (2-hour movie) |
-|-------------|---------------------|
-| NVIDIA GPU | 15 ~ 25 min |
-| No GPU (CPU only) | 1 hour or more |
-
-> 💡 On first run, the AI model (~85MB) will be downloaded automatically. Internet connection required.
-
-### 5. View Results
-
-When done, click **📁 Open Output Folder** to find your results.
-
-| File | Contents |
-|------|----------|
-| `(name)_final.mp4` | Final output video |
-| `(name)_report.html` | Matching report (open in browser) |
+> 💡 "Windows의 PC 보호" 경고창이 뜨면 **추가 정보 → 실행** 을 클릭하세요.
 
 ---
 
-### Other Buttons
+### 3단계 — 실행
 
-- **■ Stop** — Stop processing at any time
-- **↺ Reset** — Clear all inputs and start over
+설치가 끝나면 **바탕화면** 또는 **폴더 안**에 **ClipTrace** 바로가기가 생깁니다.
+
+더블클릭해서 실행하세요.
 
 ---
 
-## Third-party Licenses
+## 사용 방법
 
-This software uses [FFmpeg](https://ffmpeg.org), which is downloaded automatically during installation under its own license (LGPL/GPL). See [https://ffmpeg.org/legal.html](https://ffmpeg.org/legal.html) for details.
+프로그램을 실행하면 아래와 같은 화면이 나옵니다.
+
+### 1. 파일 선택
+
+- 왼쪽 **📱 숏츠** 영역에 짧은 영상(숏츠)을 드래그하거나 클릭해서 선택
+- 오른쪽 **🎬 풀영상** 영역에 원본 영화 파일을 드래그하거나 클릭해서 선택
+  - 영화 파일을 여러 개 넣으면 각각 따로 결과가 생성됩니다
+
+### 2. 저장 폴더명 입력
+
+결과물이 저장될 폴더 이름을 입력합니다. (예: `my_movie`)
+
+### 3. 옵션 선택
+
+| 옵션 | 언제 사용하나요? |
+|------|-----------------|
+| **시간순 정렬** | 결과 영상에서 같은 장면이 반복될 때 체크 (기본 권장) |
+
+### 4. 실행
+
+**▶ 실행** 버튼을 클릭합니다.
+
+진행률 바가 채워지면서 처리가 진행됩니다. 영화 길이에 따라 시간이 걸립니다.
+
+| 환경 | 소요 시간 (2시간 영화 기준) |
+|------|--------------------------|
+| NVIDIA 그래픽카드 있음 | 15 ~ 25분 |
+| 그래픽카드 없음 (CPU) | 1시간 이상 |
+
+> 💡 첫 실행 시 AI 모델(약 85MB)을 자동으로 다운로드합니다. 인터넷 연결이 필요합니다.
+
+### 5. 결과 확인
+
+완료되면 **📁 출력 폴더 열기** 버튼을 클릭해서 결과물을 확인합니다.
+
+| 파일 | 내용 |
+|------|------|
+| `(이름)_final.mp4` | 최종 결과 영상 |
+| `(이름)_report.html` | 매칭 결과 리포트 (브라우저에서 열기) |
+
+---
+
+### 기타 버튼
+
+- **■ 중단** — 처리 중 멈추고 싶을 때
+- **↺ 초기화** — 처음부터 다시 시작하고 싶을 때
+
+---
+
+## 서드파티 라이선스
+
+이 소프트웨어는 설치 시 [FFmpeg](https://ffmpeg.org)을 자동으로 다운로드합니다. FFmpeg은 LGPL/GPL 라이선스를 따릅니다. 자세한 내용은 [https://ffmpeg.org/legal.html](https://ffmpeg.org/legal.html) 을 참고하세요.

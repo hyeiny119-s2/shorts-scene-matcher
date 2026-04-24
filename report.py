@@ -50,7 +50,7 @@ def generate_report(prefix, shorts_file, out_dir,
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>{prefix} Report</title>
+<title>{prefix} 리포트</title>
 <style>
 *{{box-sizing:border-box;margin:0;padding:0}}
 body{{background:#111;color:#eee;font-family:'Segoe UI',sans-serif;height:100vh;display:flex;flex-direction:column;overflow:hidden}}
@@ -93,21 +93,21 @@ select{{background:#2a2a2a;color:#999;border:none;padding:3px 6px;border-radius:
 </head>
 <body>
 <header>
-  <h1>📊 {prefix} — Matching Report</h1>
+  <h1>📊 {prefix} — 매칭 결과 리포트</h1>
   <div class="meta">Generated: {now}<br>Shorts: {os.path.basename(shorts_file)} &nbsp;|&nbsp; threshold: {args.threshold} &nbsp;|&nbsp; buffer: {args.buffer}s</div>
 </header>
 <div class="main">
 <div class="table-wrap">
   <table>
     <thead><tr>
-      <th>#</th><th class="shorts">Reference</th><th class="final">Final</th>
+      <th>#</th><th class="shorts">레퍼런스</th><th class="final">Final</th>
     </tr></thead>
     <tbody>{rows}</tbody>
   </table>
 </div>
 <div class="players">
   <div class="cell ref">
-    <div class="lbl">🎬 Reference Shorts<small>{os.path.basename(shorts_file)}</small></div>
+    <div class="lbl">🎬 레퍼런스 숏츠<small>{os.path.basename(shorts_file)}</small></div>
     <video id="v0" src="{shorts_rel}" preload="metadata"></video>
     <div class="vc">
       <div class="sr">
@@ -125,7 +125,7 @@ select{{background:#2a2a2a;color:#999;border:none;padding:3px 6px;border-radius:
     </div>
   </div>
   <div class="cell final">
-    <div class="lbl">🏆 Result Video<small>{prefix}</small></div>
+    <div class="lbl">🏆 결과 영상<small>{prefix}</small></div>
     <video id="v1" src="{final_rel}" preload="metadata" muted></video>
     <div class="vc">
       <div class="sr">

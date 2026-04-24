@@ -31,7 +31,7 @@ class StopProcessing(Exception):
 
 def _check_stop():
     if _stop_event.is_set():
-        raise StopProcessing("Processing stopped by user.")
+        raise StopProcessing("사용자가 처리를 중단했습니다.")
 
 def _set_progress(val):
     global _progress
@@ -49,13 +49,13 @@ def get_video_size(path):
     return w, h
 
 def get_shorts_scenes(path, threshold=3.0):
-    print(f"\n🎬 Detecting cuts... (threshold={threshold})")
+    print(f"\n🎬 컷 분석 중... (threshold={threshold})")
     scenes = []
     for i, sc in enumerate(detect(path, AdaptiveDetector(adaptive_threshold=threshold))):
         s, e = sc[0].get_seconds(), sc[1].get_seconds()
         scenes.append((s, e))
-        print(f"  - Cut {i+1}: {format_time(s)} ~ {format_time(e)}")
-    print(f"  → {len(scenes)} cuts found")
+        print(f"  - 컷 {i+1}: {format_time(s)} ~ {format_time(e)}")
+    print(f"  → {len(scenes)}개 컷 발견")
     return scenes
 
 # ── Visual matching: DINOv2-Small (GPU) ──────────────────────────────────────
@@ -92,7 +92,7 @@ def crop_frame(frame, sw, sh, h_pos=0.5):
     return cv2.resize(frame, (224, 224), interpolation=cv2.INTER_LINEAR)
 
 def prepare_scene_features(scenes, shorts_path, sw, sh, model):
-    print("\n  Extracting reference features from shorts...")
+    print("\n  숏츠 레퍼런스 특징 추출 중...")
     cap = cv2.VideoCapture(shorts_path)
     scene_feats = []
     for start, end in scenes:
@@ -110,7 +110,7 @@ def prepare_scene_features(scenes, shorts_path, sw, sh, model):
     return scene_feats
 
 def precompute_movie_features(movie_path, sw, sh, model, progress_cb=None):
-    print(f"\n🖥️  [1/2] Extracting movie features ({DEVICE})...")
+    print(f"\n🖥️  [1/2] 영화 특징 추출 중 ({DEVICE})...")
     cap   = cv2.VideoCapture(movie_path)
     fps   = cap.get(cv2.CAP_PROP_FPS)
     total = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
@@ -177,7 +177,7 @@ def precompute_movie_features(movie_path, sw, sh, model, progress_cb=None):
     return movie_feats, fps, total / fps
 
 def find_timestamps_by_visual(scene_feats, movie_feats, fps, min_sim=0.0):
-    print(f"\n👁️  [2/2] Matching scenes... (full scan, 3-crop, min_sim={min_sim})")
+    print(f"\n👁️  [2/2] 씬 매칭 중... (전체 스캔, 3-크롭, min_sim={min_sim})")
     all_fidxs = sorted(next(iter(movie_feats.values())).keys())
 
     results = []
@@ -185,7 +185,7 @@ def find_timestamps_by_visual(scene_feats, movie_feats, fps, min_sim=0.0):
         _check_stop()
         if len(ref_feats) == 0:
             results.append(None)
-            print(f"  - Scene {i+1}: no reference frames")
+            print(f"  - 씬 {i+1}: 레퍼런스 프레임 없음")
             continue
 
         ref_mean = ref_feats.mean(axis=0)
@@ -206,17 +206,17 @@ def find_timestamps_by_visual(scene_feats, movie_feats, fps, min_sim=0.0):
 
         if best_sim < min_sim:
             results.append(None)
-            print(f"  - Scene {i+1}: skipped (sim={best_sim:.4f} < {min_sim})")
+            print(f"  - 씬 {i+1}: 스킵 (sim={best_sim:.4f} < {min_sim})")
         else:
             results.append(best_t)
-            print(f"  - Scene {i+1}: {format_time(best_t)}  (sim={best_sim:.4f})")
+            print(f"  - 씬 {i+1}: {format_time(best_t)}  (sim={best_sim:.4f})")
 
     return results
 
 # ── Monotonic constraint ──────────────────────────────────────────────────────
 
 def apply_monotonic_constraint(final_times, scenes, min_gap=5.0, buffer=1.0):
-    print(f"\n⏱️  Applying monotonic constraint... (min gap {min_gap}s)")
+    print(f"\n⏱️  시간순 정렬 중... (최소 간격 {min_gap}s)")
 
     pairs = [(t, i) for i, t in enumerate(final_times) if t is not None]
     pairs.sort(key=lambda x: x[0])
@@ -229,12 +229,12 @@ def apply_monotonic_constraint(final_times, scenes, min_gap=5.0, buffer=1.0):
         if t >= prev_end + min_gap:
             selected.append((idx, t, scenes[idx]))
             prev_end = t + dur + buffer
-            print(f"  ✅ Scene {idx+1}: {format_time(t)}  (render end: {format_time(prev_end)})")
+            print(f"  ✅ 씬 {idx+1}: {format_time(t)}  (렌더 종료: {format_time(prev_end)})")
         else:
-            print(f"  ⏭️  Scene {idx+1}: {format_time(t)}  → skipped ({prev_end - t:.1f}s until prev clip ends)")
+            print(f"  ⏭️  씬 {idx+1}: {format_time(t)}  → 스킵 (이전 클립 종료까지 {prev_end - t:.1f}s 남음)")
 
     selected.sort(key=lambda x: x[0])
-    print(f"  → {len(selected)}/{len(pairs)} selected (re-sorted to shorts order)")
+    print(f"  → {len(selected)}/{len(pairs)}개 선택 (숏츠 순서로 재정렬)")
     selected_idx = {x[0] for x in selected}
     return [x[1] for x in selected], [x[2] for x in selected], selected_idx
 
@@ -258,7 +258,7 @@ def extract_thumbnails(video_file, times, out_dir, prefix, label):
         else:
             thumbs.append(None)
     cap.release()
-    print(f"  🖼️  {sum(1 for t in thumbs if t)} thumbnails saved → {img_dir}")
+    print(f"  🖼️  썸네일 {sum(1 for t in thumbs if t)}개 저장 → {img_dir}")
     return thumbs
 
 # ── Rendering ─────────────────────────────────────────────────────────────────
@@ -271,16 +271,16 @@ def render(label, timestamps, shorts_scenes, movie_clip, output_path, buffer):
         if t is None:
             continue
         t_end = min(t + (end - start) + buffer, movie_clip.duration)
-        print(f"  ✂️  Scene {i+1}: {format_time(t)} ~ {format_time(t_end)}")
+        print(f"  ✂️  씬 {i+1}: {format_time(t)} ~ {format_time(t_end)}")
         clips.append(movie_clip.subclipped(t, t_end))
     if not clips:
-        print("  ⚠️  No clips extracted")
+        print("  ⚠️  추출된 클립 없음")
         return
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
     out = concatenate_videoclips(clips)
     out.write_videofile(output_path, codec="libx264", audio_codec="aac")
     out.close()
-    print(f"  ✅ Saved: {output_path}")
+    print(f"  ✅ 저장 완료: {output_path}")
 
 # ── Entry point ───────────────────────────────────────────────────────────────
 
@@ -309,7 +309,7 @@ def main():
         DEVICE = torch.device('cpu')
     elif args.device == 'cuda':
         if not torch.cuda.is_available():
-            print("⚠️ CUDA not available → switching to CPU")
+            print("⚠️ CUDA 미사용 → CPU로 전환")
             DEVICE = torch.device('cpu')
         else:
             DEVICE = torch.device('cuda')
@@ -320,14 +320,14 @@ def main():
     movies      = args.movie
 
     if not shorts_file.lower().endswith(SUPPORTED_EXTS):
-        print(f"❌ Unsupported file extension. Supported: {SUPPORTED_EXTS}"); sys.exit(1)
+        print(f"❌ 지원하지 않는 파일 형식. 지원: {SUPPORTED_EXTS}"); sys.exit(1)
     if not os.path.exists(shorts_file):
-        print("❌ Shorts file not found."); sys.exit(1)
+        print("❌ 숏츠 파일 없음."); sys.exit(1)
 
     device_info = f"{DEVICE}"
     if torch.cuda.is_available():
         device_info += f" ({torch.cuda.get_device_name(0)}, {torch.cuda.get_device_properties(0).total_memory // 1024**3}GB)"
-    print(f"💻 Device: {device_info}")
+    print(f"💻 디바이스: {device_info}")
 
     prefix = args.prefix.removesuffix('.mp4')
 
@@ -338,10 +338,10 @@ def main():
     _set_progress(0.05)
 
     sw, sh = get_video_size(shorts_file)
-    print(f"\n📐 Shorts resolution: {sw}×{sh}")
+    print(f"\n📐 숏츠 해상도: {sw}×{sh}")
 
     _set_progress(0.10)
-    print("\n🔧 Loading DINOv2-Small...")
+    print("\n🔧 DINOv2-Small 로드 중...")
     model = build_feature_extractor()
 
     scene_feats = prepare_scene_features(scenes, shorts_file, sw, sh, model)
@@ -354,9 +354,9 @@ def main():
             print(f"{'='*52}")
 
         if not movie_file.lower().endswith(SUPPORTED_EXTS):
-            print(f"❌ Unsupported extension: {movie_file} — skipping"); continue
+            print(f"❌ 지원하지 않는 확장자: {movie_file} — 스킵"); continue
         if not os.path.exists(movie_file):
-            print(f"❌ File not found: {movie_file} — skipping"); continue
+            print(f"❌ 파일 없음: {movie_file} — 스킵"); continue
 
         stem    = os.path.splitext(os.path.basename(movie_file))[0]
         out_dir = os.path.join("data/output", f"{prefix}_{stem}")
@@ -393,7 +393,7 @@ def main():
         finally:
             movie_clip.close()
 
-        print("\n🖼️  Extracting thumbnails...")
+        print("\n🖼️  썸네일 추출 중...")
         shorts_times  = [(s + e) / 2 for s, e in scenes]
         shorts_thumbs = extract_thumbnails(shorts_file, shorts_times,           out_dir, prefix, "shorts")
         final_thumbs  = extract_thumbnails(movie_file,  final_times_for_thumbs, out_dir, prefix, "final")

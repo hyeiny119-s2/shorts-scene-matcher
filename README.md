@@ -81,3 +81,9 @@ When done, click **📁 Open Output Folder** to find your results.
 
 - **■ Stop** — Stop processing at any time
 - **↺ Reset** — Clear all inputs and start over
+
+---
+
+## Third-party Licenses
+
+This software uses [FFmpeg](https://ffmpeg.org), which is downloaded automatically during installation under its own license (LGPL/GPL). See [https://ffmpeg.org/legal.html](https://ffmpeg.org/legal.html) for details.

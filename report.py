@@ -9,13 +9,12 @@ def generate_report(prefix, shorts_file, out_dir,
     os.makedirs(out_dir, exist_ok=True)
     report_path = os.path.join(out_dir, f"{prefix}_report.html")
 
-    # 숏츠 원본을 output 폴더에 복사 (로컬 다운로드 시 함께 사용)
+    # Copy shorts file to output folder for local playback
     shorts_basename = os.path.basename(shorts_file)
     shorts_dest = os.path.join(out_dir, shorts_basename)
     if os.path.abspath(shorts_file) != os.path.abspath(shorts_dest):
         shutil.copy2(shorts_file, shorts_dest)
 
-    # HTML과 mp4가 같은 폴더 → 파일명만 사용
     shorts_rel = shorts_basename
     final_rel  = f"{prefix}_final.mp4"
 
@@ -49,10 +48,10 @@ def generate_report(prefix, shorts_file, out_dir,
     now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
     html = f"""<!DOCTYPE html>
-<html lang="ko">
+<html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>{prefix} 리포트</title>
+<title>{prefix} Report</title>
 <style>
 *{{box-sizing:border-box;margin:0;padding:0}}
 body{{background:#111;color:#eee;font-family:'Segoe UI',sans-serif;height:100vh;display:flex;flex-direction:column;overflow:hidden}}
@@ -95,21 +94,21 @@ select{{background:#2a2a2a;color:#999;border:none;padding:3px 5px;border-radius:
 </head>
 <body>
 <header>
-  <h1>📊 {prefix} — 매칭 결과 리포트</h1>
-  <div class="meta">생성: {now}<br>숏츠: {os.path.basename(shorts_file)} &nbsp;|&nbsp; threshold: {args.threshold} &nbsp;|&nbsp; buffer: {args.buffer}s</div>
+  <h1>📊 {prefix} — Matching Report</h1>
+  <div class="meta">Generated: {now}<br>Shorts: {os.path.basename(shorts_file)} &nbsp;|&nbsp; threshold: {args.threshold} &nbsp;|&nbsp; buffer: {args.buffer}s</div>
 </header>
 <div class="main">
 <div class="table-wrap">
   <table>
     <thead><tr>
-      <th>#</th><th class="shorts">레퍼런스</th><th class="final">Final</th>
+      <th>#</th><th class="shorts">Reference</th><th class="final">Final</th>
     </tr></thead>
     <tbody>{rows}</tbody>
   </table>
 </div>
 <div class="players">
   <div class="cell ref">
-    <div class="lbl">🎬 레퍼런스 숏츠<small>{os.path.basename(shorts_file)}</small></div>
+    <div class="lbl">🎬 Reference Shorts<small>{os.path.basename(shorts_file)}</small></div>
     <video id="v0" src="{shorts_rel}" preload="metadata"></video>
     <div class="vc">
       <div class="sr">
@@ -127,7 +126,7 @@ select{{background:#2a2a2a;color:#999;border:none;padding:3px 5px;border-radius:
     </div>
   </div>
   <div class="cell final">
-    <div class="lbl">🏆 결과 영상<small>{prefix}</small></div>
+    <div class="lbl">🏆 Result Video<small>{prefix}</small></div>
     <video id="v1" src="{final_rel}" preload="metadata" muted></video>
     <div class="vc">
       <div class="sr">
@@ -171,4 +170,4 @@ function tm(i){{const v=V[i],b=document.getElementById('mb'+i);v.muted=!v.muted;
 
     with open(report_path, "w", encoding="utf-8") as f:
         f.write(html)
-    print(f"\n📊 리포트 저장: {report_path}")
+    print(f"\n📊 Report saved: {report_path}")

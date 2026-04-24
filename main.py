@@ -29,7 +29,7 @@ FEAT_DIM             = 384   # DINOv2-Small
 DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 _stop_event      = threading.Event()
-_READER_SENTINEL = object()  # pipeline sentinel (None 충돌 방지)
+_READER_SENTINEL = object()  # sentinel to signal reader thread completion
 _progress        = 0.0
 
 class StopProcessing(Exception):
@@ -37,13 +37,13 @@ class StopProcessing(Exception):
 
 def _check_stop():
     if _stop_event.is_set():
-        raise StopProcessing("사용자가 처리를 중단했습니다.")
+        raise StopProcessing("Processing stopped by user.")
 
 def _set_progress(val):
     global _progress
     _progress = min(max(float(val), 0.0), 1.0)
 
-# ── 공통 유틸 ────────────────────────────────────────────────────────────────
+# ── Utilities ────────────────────────────────────────────────────────────────
 
 def format_time(s):
     return f"{int(s//3600):02d}:{int((s%3600)//60):02d}:{s%60:05.2f}"
@@ -55,16 +55,16 @@ def get_video_size(path):
     return w, h
 
 def get_shorts_scenes(path, threshold=3.0):
-    print(f"\n🎬 컷 분석 중... (threshold={threshold})")
+    print(f"\n🎬 Detecting cuts... (threshold={threshold})")
     scenes = []
     for i, sc in enumerate(detect(path, AdaptiveDetector(adaptive_threshold=threshold))):
         s, e = sc[0].get_seconds(), sc[1].get_seconds()
         scenes.append((s, e))
-        print(f"  - 컷 {i+1}: {format_time(s)} ~ {format_time(e)}")
-    print(f"  → 총 {len(scenes)}개 컷")
+        print(f"  - Cut {i+1}: {format_time(s)} ~ {format_time(e)}")
+    print(f"  → {len(scenes)} cuts found")
     return scenes
 
-# ── 오디오 로딩 ──────────────────────────────────────────────────────────────
+# ── Audio loading ─────────────────────────────────────────────────────────────
 
 def load_audio(video_path):
     with tempfile.NamedTemporaryFile(suffix='.wav', delete=False) as tmp:
@@ -78,7 +78,7 @@ def load_audio(video_path):
         os.unlink(tmp_path)
     return audio
 
-# ── 오디오 매칭: NCC ─────────────────────────────────────────────────────────
+# ── Audio matching: NCC ───────────────────────────────────────────────────────
 
 def ncc_topk(movie_audio, scene_audio, k=8, gap_s=30.0):
     """Top-k NCC peaks with gap suppression. Returns [(time_s, conf), ...]"""
@@ -112,34 +112,34 @@ def ncc_topk(movie_audio, scene_audio, k=8, gap_s=30.0):
     return peaks  # sorted by NCC score desc
 
 def find_timestamps_by_audio(shorts_scenes, shorts_audio, movie_audio):
-    print("\n🎵 [1/3] 오디오 NCC 매칭 중...")
+    print("\n🎵 [1/3] Audio NCC matching...")
     times, confs, all_candidates = [], [], []
     for i, (start, end) in enumerate(shorts_scenes):
         scene = shorts_audio[int(start * AUDIO_SR):int(end * AUDIO_SR)]
         if len(scene) < AUDIO_SR // 2:
-            print(f"  - 씬 {i+1}: 너무 짧아 스킵")
+            print(f"  - Scene {i+1}: too short, skipping")
             times.append(None); confs.append(0.0); all_candidates.append([])
             continue
         candidates = ncc_topk(movie_audio, scene, k=8)
         t, conf = candidates[0] if candidates else (None, 0.0)
-        warn = "  ⚠️ 낮은 신뢰도" if conf < AUDIO_CONF_THRESHOLD else ""
+        warn = "  ⚠️ low confidence" if conf < AUDIO_CONF_THRESHOLD else ""
         t_str = format_time(t) if t is not None else "—"
-        print(f"  - 씬 {i+1}: {t_str}  (신뢰도 {conf:.1f}){warn}")
+        print(f"  - Scene {i+1}: {t_str}  (confidence {conf:.1f}){warn}")
         times.append(t); confs.append(conf); all_candidates.append(candidates)
     return times, confs, all_candidates
 
-# ── 비주얼 매칭: DINOv2-Small (GPU) ─────────────────────────────────────────
+# ── Visual matching: DINOv2-Small (GPU) ──────────────────────────────────────
 #
 # DINOv2 (384-dim L2-normalized, self-supervised):
-#   → 텍스트 없이 순수 시각 유사성 학습 → 장면 매칭에 더 특화
-#   → GPU 배치 처리로 2시간 영화도 수십 초 내 완료
-#   → 코사인 유사도 search: (M, 384) @ (384, R) → 즉시 결과
+#   - Purely visual similarity, no text — better suited for scene matching
+#   - GPU batch processing handles a 2-hour movie in minutes
+#   - Cosine similarity search: (M, 384) @ (384, R) → instant results
 #
-# 좌/중/우 크롭 유지:
-#   → auto-framing 숏츠 (피사체가 중앙이 아닐 때) 대응
+# Left/center/right crops:
+#   - Handles auto-framed shorts where the subject is off-center
 
 class DINOv2Extractor:
-    """DINOv2-Small wrapper — encode_image(frames_bgr) → (N, 384) numpy"""
+    """DINOv2-Small wrapper — encode_image(frames_rgb) → (N, 384) tensor"""
     def __init__(self, model_name='facebook/dinov2-small'):
         self.processor = AutoImageProcessor.from_pretrained(model_name)
         self.model     = AutoModel.from_pretrained(model_name).eval().to(DEVICE)
@@ -157,13 +157,13 @@ def build_feature_extractor():
     return DINOv2Extractor()
 
 @torch.no_grad()
-def frames_to_features(frames_bgr, model):
-    """list of BGR numpy arrays → (N, FEAT_DIM) float32 L2-normalized features"""
-    feats = model.encode_image(frames_bgr)
+def frames_to_features(frames_rgb, model):
+    """List of RGB numpy arrays → (N, FEAT_DIM) float32 L2-normalized features"""
+    feats = model.encode_image(frames_rgb)
     return feats.cpu().numpy().astype(np.float32)
 
 def crop_frame(frame, sw, sh, h_pos=0.5):
-    """영화 프레임을 숏츠 비율로 크롭 후 DINOv2 입력 크기(224×224)로 리사이즈"""
+    """Crop movie frame to shorts aspect ratio, then resize to 224×224 for DINOv2"""
     fh, fw = frame.shape[:2]
     cw = int(fh * sw / sh)
     if cw < fw:
@@ -172,8 +172,8 @@ def crop_frame(frame, sw, sh, h_pos=0.5):
     return cv2.resize(frame, (224, 224), interpolation=cv2.INTER_LINEAR)
 
 def prepare_scene_features(scenes, shorts_path, sw, sh, model):
-    """숏츠 씬별 레퍼런스 프레임 feature 추출 (GPU)"""
-    print("\n  숏츠 레퍼런스 feature 추출 중...")
+    """Extract reference features for each shorts scene (GPU)"""
+    print("\n  Extracting reference features from shorts...")
     cap = cv2.VideoCapture(shorts_path)
     scene_feats = []
     for start, end in scenes:
@@ -192,14 +192,15 @@ def prepare_scene_features(scenes, shorts_path, sw, sh, model):
 
 def precompute_movie_features(movie_path, sw, sh, model, progress_cb=None):
     """
-    영화 전체 1회 순차 스캔 → GPU 배치로 feature 추출
+    Single sequential scan of the full movie → GPU batch feature extraction.
     {crop_pos: {frame_idx: feature_vector (384,)}}
 
-    최적화:
-    - 3 crop을 하나의 GPU 배치로 합쳐 커널 호출 3× → 1×
-    - 프레임 읽기(CPU/I/O) ↔ GPU 처리를 큐로 파이프라인
+    Optimizations:
+    - All 3 crops sent in one GPU call (3× kernel launches → 1×)
+    - Frame reading (CPU/I/O) pipelined with GPU via queue
+    - Resize and BGR→RGB done in reader thread, not GPU loop
     """
-    print(f"\n🖥️  [2/3] 영화 feature 추출 중 ({DEVICE})...")
+    print(f"\n🖥️  [2/3] Extracting movie features ({DEVICE})...")
     cap   = cv2.VideoCapture(movie_path)
     fps   = cap.get(cv2.CAP_PROP_FPS)
     total = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
@@ -207,11 +208,11 @@ def precompute_movie_features(movie_path, sw, sh, model, progress_cb=None):
     n_pos = len(CROP_H_POSITIONS)
 
     movie_feats = {pos: {} for pos in CROP_H_POSITIONS}
-    batch_q     = queue.Queue(maxsize=4)  # GPU가 처리할 배치 큐
+    batch_q     = queue.Queue(maxsize=4)
 
-    # ── 프레임 읽기 스레드 (CPU/I/O) ──────────────────────────────────────────
+    # ── Reader thread (CPU/I/O) ───────────────────────────────────────────────
     def reader():
-        pending_crops = []   # [frame_crop_0, frame_crop_1, ..., frame_crop_n] per sampled frame
+        pending_crops = []
         pending_fidxs = []
         fidx = 0
         while True:
@@ -237,7 +238,7 @@ def precompute_movie_features(movie_path, sw, sh, model, progress_cb=None):
     t = threading.Thread(target=reader, daemon=True)
     t.start()
 
-    # ── GPU 처리 (메인 스레드) ─────────────────────────────────────────────────
+    # ── GPU processing (main thread) ──────────────────────────────────────────
     processed = 0
     try:
         while True:
@@ -246,7 +247,7 @@ def precompute_movie_features(movie_path, sw, sh, model, progress_cb=None):
                 break
             _check_stop()
             fidxs, crops = item
-            # crops 순서: [f0_pos0, f0_pos1, f0_pos2, f1_pos0, ...] → 전체 1번 GPU 호출
+            # crops order: [f0_pos0, f0_pos1, f0_pos2, f1_pos0, ...] → single GPU call
             feats = frames_to_features(crops, model)   # (B*n_pos, FEAT_DIM)
             for j, fi in enumerate(fidxs):
                 for k, pos in enumerate(CROP_H_POSITIONS):
@@ -257,7 +258,7 @@ def precompute_movie_features(movie_path, sw, sh, model, progress_cb=None):
             pct = processed * step / total * 100 if total > 0 else 0.0
             print(f"  ... {min(processed * step, total)}/{total} ({pct:.1f}%)", end='\r')
     finally:
-        # stop 발생 시 큐를 비워 reader 스레드가 블록 해제되도록
+        # Drain queue so reader thread can unblock on stop
         while True:
             try:
                 batch_q.get_nowait()
@@ -272,11 +273,11 @@ def precompute_movie_features(movie_path, sw, sh, model, progress_cb=None):
 def find_timestamps_by_visual(scene_feats, movie_feats, fps, audio_times, audio_confs,
                                search_window, min_sim=0.0):
     """
-    DINOv2 코사인 유사도 기반 최적 프레임 탐색
-    오디오 신뢰도 낮은 씬은 search_window 2배 적용
-    min_sim 미만이면 None 반환
+    DINOv2 cosine similarity search for best matching frame.
+    Scenes with low audio confidence use 2× search window.
+    Returns None if best similarity is below min_sim.
     """
-    print(f"\n👁️  [3/3] 비주얼 DINOv2 매칭 중 (±{search_window}s, 3방향 크롭, min_sim={min_sim})...")
+    print(f"\n👁️  [3/3] Visual DINOv2 matching (±{search_window}s, 3-crop, min_sim={min_sim})...")
     all_fidxs = sorted(next(iter(movie_feats.values())).keys())
 
     results = []
@@ -284,7 +285,7 @@ def find_timestamps_by_visual(scene_feats, movie_feats, fps, audio_times, audio_
         _check_stop()
         if len(ref_feats) == 0:
             results.append(None)
-            print(f"  - 씬 {i+1}: 레퍼런스 없음")
+            print(f"  - Scene {i+1}: no reference frames")
             continue
 
         win = search_window * 2 if ac < AUDIO_CONF_THRESHOLD else search_window
@@ -298,7 +299,7 @@ def find_timestamps_by_visual(scene_feats, movie_feats, fps, audio_times, audio_
 
         if not cand_fidxs:
             results.append(None)
-            print(f"  - 씬 {i+1}: 후보 없음")
+            print(f"  - Scene {i+1}: no candidates found")
             continue
 
         ref_mean = ref_feats.mean(axis=0)
@@ -317,18 +318,17 @@ def find_timestamps_by_visual(scene_feats, movie_feats, fps, audio_times, audio_
                 best_sim = float(sims[max_i])
                 best_t   = int(fidxs_arr[max_i]) / fps
 
-        scope = f"±{win:.0f}s" if at is not None else "전체"
+        scope = f"±{win:.0f}s" if at is not None else "full scan"
         if best_sim < min_sim:
             results.append(None)
-            print(f"  - 씬 {i+1}: 스킵 (sim={best_sim:.4f} < {min_sim}, {scope})")
+            print(f"  - Scene {i+1}: skipped (sim={best_sim:.4f} < {min_sim}, {scope})")
         else:
             results.append(best_t)
-            print(f"  - 씬 {i+1}: {format_time(best_t)}  (sim={best_sim:.4f}, {scope})")
+            print(f"  - Scene {i+1}: {format_time(best_t)}  (sim={best_sim:.4f}, {scope})")
 
     return results
 
-# ── 단조 시간순 제약 ──────────────────────────────────────────────────────────
-
+# ── Monotonic constraint ──────────────────────────────────────────────────────
 
 def apply_monotonic_constraint(final_times, scenes, min_gap=5.0, buffer=1.0):
     """
@@ -336,7 +336,7 @@ def apply_monotonic_constraint(final_times, scenes, min_gap=5.0, buffer=1.0):
     prev_end includes buffer so rendered clips never overlap.
     min_gap: extra seconds after rendered clip ends before next clip starts.
     """
-    print(f"\n⏱️  단조 시간순 정렬 및 중복 제거 중... (최소 간격 {min_gap}s)")
+    print(f"\n⏱️  Applying monotonic constraint... (min gap {min_gap}s)")
 
     pairs = [(t, i) for i, t in enumerate(final_times) if t is not None]
     pairs.sort(key=lambda x: x[0])
@@ -349,20 +349,20 @@ def apply_monotonic_constraint(final_times, scenes, min_gap=5.0, buffer=1.0):
         if t >= prev_end + min_gap:
             selected.append((idx, t, scenes[idx]))
             prev_end = t + dur + buffer
-            print(f"  ✅ 씬 {idx+1}: {format_time(t)}  (렌더 끝: {format_time(prev_end)})")
+            print(f"  ✅ Scene {idx+1}: {format_time(t)}  (render end: {format_time(prev_end)})")
         else:
-            print(f"  ⏭️  씬 {idx+1}: {format_time(t)}  → 스킵 (이전 렌더 끝까지 {prev_end - t:.1f}s 남음)")
+            print(f"  ⏭️  Scene {idx+1}: {format_time(t)}  → skipped ({prev_end - t:.1f}s until prev clip ends)")
 
-    # 숏츠 원본 씬 순서로 재정렬
+    # Re-sort by original shorts scene order
     selected.sort(key=lambda x: x[0])
-    print(f"  → {len(selected)}/{len(pairs)}개 선택 (숏츠 순서로 재정렬)")
+    print(f"  → {len(selected)}/{len(pairs)} selected (re-sorted to shorts order)")
     selected_idx = {x[0] for x in selected}
     return [x[1] for x in selected], [x[2] for x in selected], selected_idx
 
-# ── 썸네일 추출 ───────────────────────────────────────────────────────────────
+# ── Thumbnail extraction ──────────────────────────────────────────────────────
 
 def extract_thumbnails(movie_file, times, out_dir, prefix, label):
-    """각 타임스탬프의 첫 프레임을 JPG로 저장, 상대 경로 리스트 반환"""
+    """Save first frame at each timestamp as JPG, return list of relative paths"""
     img_dir = os.path.join(out_dir, "img")
     os.makedirs(img_dir, exist_ok=True)
     cap = cv2.VideoCapture(movie_file)
@@ -380,10 +380,10 @@ def extract_thumbnails(movie_file, times, out_dir, prefix, label):
         else:
             thumbs.append(None)
     cap.release()
-    print(f"  🖼️  썸네일 {sum(1 for t in thumbs if t)}개 저장 → {img_dir}")
+    print(f"  🖼️  {sum(1 for t in thumbs if t)} thumbnails saved → {img_dir}")
     return thumbs
 
-# ── 렌더링 ────────────────────────────────────────────────────────────────────
+# ── Rendering ─────────────────────────────────────────────────────────────────
 
 def render(label, timestamps, shorts_scenes, movie_clip, output_path, buffer):
     print(f"\n🎞️  [{label}] → {output_path}")
@@ -393,18 +393,18 @@ def render(label, timestamps, shorts_scenes, movie_clip, output_path, buffer):
         if t is None:
             continue
         t_end = min(t + (end - start) + buffer, movie_clip.duration)
-        print(f"  ✂️  씬 {i+1}: {format_time(t)} ~ {format_time(t_end)}")
+        print(f"  ✂️  Scene {i+1}: {format_time(t)} ~ {format_time(t_end)}")
         clips.append(movie_clip.subclipped(t, t_end))
     if not clips:
-        print("  ⚠️  추출된 클립 없음")
+        print("  ⚠️  No clips extracted")
         return
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
     out = concatenate_videoclips(clips)
     out.write_videofile(output_path, codec="libx264", audio_codec="aac")
     out.close()
-    print(f"  ✅ 저장: {output_path}")
+    print(f"  ✅ Saved: {output_path}")
 
-# ── 진입점 ────────────────────────────────────────────────────────────────────
+# ── Entry point ───────────────────────────────────────────────────────────────
 
 def main():
     p = argparse.ArgumentParser()
@@ -413,47 +413,47 @@ def main():
     p.add_argument('-p', '--prefix',    required=True)
     p.add_argument('-b', '--buffer',    type=float, default=1.0)
     p.add_argument('-t', '--threshold', type=float, default=3.0,
-                   help="컷 감지 민감도 (낮을수록 민감, 기본값: 3.0)")
+                   help="Cut detection sensitivity (lower = more sensitive, default: 3.0)")
     p.add_argument('-w', '--window',    type=float, default=60.0,
-                   help="비주얼 검색 윈도우 초 (기본값: 60)")
+                   help="Visual search window in seconds (default: 60)")
     p.add_argument('--preview', action='store_true',
-                   help="컷 감지만 확인하고 종료")
+                   help="Run cut detection only and exit")
     p.add_argument('--monotonic', action='store_true', default=False,
-                   help="매칭 타임스탬프를 영화 시간순으로 강제 정렬 (반복 장면 방지)")
+                   help="Enforce chronological order on matched timestamps (prevents duplicate scenes)")
     p.add_argument('--visual-only', action='store_true', default=False,
-                   help="오디오 매칭 생략, 비주얼 전체 스캔만 사용 (BGM 있는 숏츠용)")
+                   help="Skip audio matching, use full visual scan only (for shorts with BGM)")
     p.add_argument('--min-sim', type=float, default=0.4,
-                   help="비주얼 최소 유사도 threshold (기본값: 0.4, 미만이면 스킵)")
+                   help="Minimum visual similarity threshold (default: 0.4, below this is skipped)")
     p.add_argument('--gap', type=float, default=5.0,
-                   help="--monotonic 최소 씬 간격 초 (기본값: 5.0)")
+                   help="Minimum gap between scenes in seconds for --monotonic (default: 5.0)")
     p.add_argument('--device', default='auto', choices=['auto', 'cuda', 'cpu'],
-                   help="처리 장치: auto/cuda/cpu (기본값: auto)")
+                   help="Processing device: auto/cuda/cpu (default: auto)")
     args = p.parse_args()
 
-    # DEVICE 확정 (GUI에서 반복 호출 시 재설정)
     global DEVICE
     if args.device == 'cpu':
         DEVICE = torch.device('cpu')
     elif args.device == 'cuda':
         if not torch.cuda.is_available():
-            print("⚠️ CUDA 없음 → CPU로 전환")
+            print("⚠️ CUDA not available → switching to CPU")
             DEVICE = torch.device('cpu')
         else:
             DEVICE = torch.device('cuda')
     else:
         DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
     shorts_file = args.shorts
-    movies      = args.movie  # list (nargs='+')
+    movies      = args.movie
 
     if not shorts_file.lower().endswith(SUPPORTED_EXTS):
-        print(f"❌ 지원하지 않는 확장자. 지원: {SUPPORTED_EXTS}"); sys.exit(1)
+        print(f"❌ Unsupported file extension. Supported: {SUPPORTED_EXTS}"); sys.exit(1)
     if not os.path.exists(shorts_file):
-        print("❌ 숏츠 파일을 찾을 수 없습니다."); sys.exit(1)
+        print("❌ Shorts file not found."); sys.exit(1)
 
     device_info = f"{DEVICE}"
     if torch.cuda.is_available():
         device_info += f" ({torch.cuda.get_device_name(0)}, {torch.cuda.get_device_properties(0).total_memory // 1024**3}GB)"
-    print(f"💻 디바이스: {device_info}")
+    print(f"💻 Device: {device_info}")
 
     prefix = args.prefix.removesuffix('.mp4')
 
@@ -464,19 +464,18 @@ def main():
     _set_progress(0.05)
 
     sw, sh = get_video_size(shorts_file)
-    print(f"\n📐 숏츠 해상도: {sw}×{sh}")
+    print(f"\n📐 Shorts resolution: {sw}×{sh}")
 
     _set_progress(0.10)
     if not args.visual_only:
-        # 오디오 로딩과 모델 로딩을 병렬로 실행
-        print("\n📂 숏츠 오디오 로딩 + DINOv2-Small 로딩 중... (병렬)")
+        print("\n📂 Loading shorts audio + DINOv2-Small... (parallel)")
         with ThreadPoolExecutor(max_workers=2) as ex:
             audio_fut = ex.submit(load_audio, shorts_file)
             model_fut = ex.submit(build_feature_extractor)
         shorts_audio = audio_fut.result()
         model        = model_fut.result()
     else:
-        print("\n🔧 DINOv2-Small 로딩 중...")
+        print("\n🔧 Loading DINOv2-Small...")
         model = build_feature_extractor()
 
     scene_feats = prepare_scene_features(scenes, shorts_file, sw, sh, model)
@@ -489,26 +488,26 @@ def main():
             print(f"{'='*52}")
 
         if not movie_file.lower().endswith(SUPPORTED_EXTS):
-            print(f"❌ 지원하지 않는 확장자: {movie_file} — 건너뜁니다"); continue
+            print(f"❌ Unsupported extension: {movie_file} — skipping"); continue
         if not os.path.exists(movie_file):
-            print(f"❌ 파일 없음: {movie_file} — 건너뜁니다"); continue
+            print(f"❌ File not found: {movie_file} — skipping"); continue
 
         stem    = os.path.splitext(os.path.basename(movie_file))[0]
         out_dir = os.path.join("data/output", f"{prefix}_{stem}")
 
-        # 1. 오디오 NCC
+        # 1. Audio NCC matching
         if args.visual_only:
-            print("\n⏭️  오디오 매칭 생략 (--visual-only)")
+            print("\n⏭️  Skipping audio matching (--visual-only)")
             n = len(scenes)
             audio_times = [None] * n
             audio_confs = [0.0]  * n
         else:
-            print("\n📂 영화 오디오 로딩 중...")
+            print("\n📂 Loading movie audio...")
             movie_audio = load_audio(movie_file)
             audio_times, audio_confs, _ = find_timestamps_by_audio(
                 scenes, shorts_audio, movie_audio)
 
-        # 2. 비주얼 DINOv2 매칭
+        # 2. Visual DINOv2 matching
         _set_progress(0.15)
         movie_feats, movie_fps, _ = precompute_movie_features(
             movie_file, sw, sh, model,
@@ -519,7 +518,7 @@ def main():
             min_sim=args.min_sim)
 
         _set_progress(0.80)
-        # 3. Final: 오디오/비주얼 선택. 둘 다 실패하면 None → 렌더 스킵
+        # 3. Final selection: prefer audio match if confident, fallback to visual
         final_times = []
         for at, ac, vt in zip(audio_times, audio_confs, visual_times):
             if not args.visual_only and at is not None and ac >= AUDIO_CONF_THRESHOLD:
@@ -529,11 +528,11 @@ def main():
             else:
                 final_times.append(None)
 
-        # 4. 단조 시간순 제약
+        # 4. Monotonic constraint
         if args.monotonic:
             mono_times, mono_scenes, mono_idx = apply_monotonic_constraint(
                 final_times, scenes, min_gap=args.gap, buffer=args.buffer)
-            # 필터링된 씬은 None으로 마스킹 (리포트 썸네일 정합성)
+            # Mask filtered scenes as None for thumbnail consistency
             final_times_for_thumbs = [
                 ft if i in mono_idx else None
                 for i, ft in enumerate(final_times)
@@ -542,7 +541,7 @@ def main():
             mono_times, mono_scenes = final_times, scenes
             final_times_for_thumbs = final_times
 
-        # 렌더링
+        # Render
         _set_progress(0.84)
         movie_clip = VideoFileClip(movie_file)
         try:
@@ -552,9 +551,9 @@ def main():
         finally:
             movie_clip.close()
 
-        print("\n🖼️  썸네일 추출 중...")
+        print("\n🖼️  Extracting thumbnails...")
         shorts_times  = [(s + e) / 2 for s, e in scenes]
-        shorts_thumbs = extract_thumbnails(shorts_file, shorts_times,          out_dir, prefix, "shorts")
+        shorts_thumbs = extract_thumbnails(shorts_file, shorts_times,           out_dir, prefix, "shorts")
         final_thumbs  = extract_thumbnails(movie_file,  final_times_for_thumbs, out_dir, prefix, "final")
 
         _set_progress(0.99)

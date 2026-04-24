@@ -23,9 +23,9 @@ class App(ctk.CTk, TkinterDnD.DnDWrapper):
         self.file_paths  = {"shorts": "", "movie": []}
         self.hint_labels = {}
         self.drop_frames = {}
-        self.prefix_var     = ctk.StringVar(value="output")
+        self.prefix_var      = ctk.StringVar(value="output")
         self.visual_only_var = ctk.BooleanVar(value=True)
-        self.monotonic_var  = ctk.BooleanVar(value=True)
+        self.monotonic_var   = ctk.BooleanVar(value=True)
 
         self.log_queue = queue.Queue()
         self.running   = False
@@ -47,7 +47,7 @@ class App(ctk.CTk, TkinterDnD.DnDWrapper):
         if torch.cuda.is_available():
             gpu_txt, gpu_col = f"GPU: {torch.cuda.get_device_name(0)}", "#10b981"
         else:
-            gpu_txt, gpu_col = "GPU 없음 (CPU 사용)", "#f59e0b"
+            gpu_txt, gpu_col = "No GPU (using CPU)", "#f59e0b"
         ctk.CTkLabel(hdr, text=gpu_txt, text_color=gpu_col,
                      font=("Segoe UI", 11)).pack(side="right")
 
@@ -55,23 +55,23 @@ class App(ctk.CTk, TkinterDnD.DnDWrapper):
         drop = ctk.CTkFrame(self)
         drop.grid(row=1, column=0, padx=20, pady=4, sticky="ew")
         drop.grid_columnconfigure((0, 1), weight=1)
-        self._make_drop_zone(drop, "📱 숏츠 (Shorts)", "shorts", 0)
-        self._make_drop_zone(drop, "🎬 풀영상 (여러 개 가능)", "movie", 1)
+        self._make_drop_zone(drop, "📱 Shorts", "shorts", 0)
+        self._make_drop_zone(drop, "🎬 Movie (multiple files supported)", "movie", 1)
 
         # Options
         opt = ctk.CTkFrame(self)
         opt.grid(row=2, column=0, padx=20, pady=4, sticky="ew")
         opt.grid_columnconfigure(1, weight=1)
 
-        ctk.CTkLabel(opt, text="저장 폴더명:").grid(
+        ctk.CTkLabel(opt, text="Output folder:").grid(
             row=0, column=0, padx=(14, 6), pady=10, sticky="e")
         ctk.CTkEntry(opt, textvariable=self.prefix_var).grid(
             row=0, column=1, padx=6, pady=10, sticky="ew")
-        ctk.CTkCheckBox(opt, text="Visual Only\n(BGM 있는 숏츠)",
+        ctk.CTkCheckBox(opt, text="Visual Only\n(for BGM shorts)",
                         variable=self.visual_only_var, width=148).grid(
             row=0, column=2, padx=8)
-        ctk.CTkCheckBox(opt, text="시간순 정렬\n(중복 방지)",
-                        variable=self.monotonic_var, width=130).grid(
+        ctk.CTkCheckBox(opt, text="Chronological\n(prevent duplicates)",
+                        variable=self.monotonic_var, width=148).grid(
             row=0, column=3, padx=(0, 10))
 
         # Run + Stop buttons
@@ -80,19 +80,19 @@ class App(ctk.CTk, TkinterDnD.DnDWrapper):
         btn_row.grid_columnconfigure(0, weight=1)
 
         self.run_btn = ctk.CTkButton(
-            btn_row, text="▶  실행", height=46,
+            btn_row, text="▶  Run", height=46,
             font=("Segoe UI", 15, "bold"), command=self._start)
         self.run_btn.grid(row=0, column=0, sticky="ew", padx=(0, 6))
 
         self.stop_btn = ctk.CTkButton(
-            btn_row, text="■  중단", height=46, width=110,
+            btn_row, text="■  Stop", height=46, width=110,
             font=("Segoe UI", 13, "bold"),
             fg_color="#2a2a2a", hover_color="#7f1d1d",
             state="disabled", command=self._stop)
         self.stop_btn.grid(row=0, column=1, sticky="ew", padx=(0, 6))
 
         ctk.CTkButton(
-            btn_row, text="↺  초기화", height=46,
+            btn_row, text="↺  Reset", height=46,
             font=("Segoe UI", 12), fg_color="#2a2a2a", hover_color="#3a3a3a",
             command=self._reset).grid(row=0, column=2)
 
@@ -107,7 +107,7 @@ class App(ctk.CTk, TkinterDnD.DnDWrapper):
 
         # Open output
         ctk.CTkButton(
-            self, text="📁 출력 폴더 열기", height=36,
+            self, text="📁 Open Output Folder", height=36,
             fg_color="transparent", border_width=1, border_color="#444",
             command=self._open_output,
         ).grid(row=6, column=0, padx=20, pady=(0, 16), sticky="ew")
@@ -123,7 +123,7 @@ class App(ctk.CTk, TkinterDnD.DnDWrapper):
 
         ctk.CTkLabel(frame, text=label,
                      font=("Segoe UI", 13, "bold")).grid(row=0, column=0)
-        hint = ctk.CTkLabel(frame, text="클릭하거나 파일을 드래그",
+        hint = ctk.CTkLabel(frame, text="Click or drag file here",
                              font=("Segoe UI", 10), text_color="#555")
         hint.grid(row=1, column=0, padx=8)
         self.hint_labels[key] = hint
@@ -159,7 +159,7 @@ class App(ctk.CTk, TkinterDnD.DnDWrapper):
     def _set_file(self, key, paths, frame):
         if key == "movie":
             self.file_paths[key] = paths
-            label = os.path.basename(paths[0]) if len(paths) == 1 else f"{len(paths)}개 파일 선택됨"
+            label = os.path.basename(paths[0]) if len(paths) == 1 else f"{len(paths)} files selected"
         else:
             self.file_paths[key] = paths[0] if paths else ""
             label = os.path.basename(paths[0]) if paths else ""
@@ -202,19 +202,19 @@ class App(ctk.CTk, TkinterDnD.DnDWrapper):
         shorts = self.file_paths["shorts"]
         movies = self.file_paths["movie"]
         if not shorts or not movies:
-            self._log("❌ 숏츠와 풀영상을 모두 선택해주세요.")
+            self.log_queue.put("❌ Please select both a shorts file and a movie file.")
             return
         if not os.path.exists(shorts):
-            self._log(f"❌ 파일 없음: {shorts}"); return
+            self.log_queue.put(f"❌ File not found: {shorts}"); return
         for m in movies:
             if not os.path.exists(m):
-                self._log(f"❌ 파일 없음: {m}"); return
+                self.log_queue.put(f"❌ File not found: {m}"); return
 
         self.log_box.configure(state="normal")
         self.log_box.delete("1.0", "end")
         self.log_box.configure(state="disabled")
 
-        self.run_btn.configure(state="disabled", text="⏳ 처리 중...")
+        self.run_btn.configure(state="disabled", text="⏳ Processing...")
         self.stop_btn.configure(state="normal", fg_color="#991b1b", hover_color="#7f1d1d")
         self.progress_bar.set(0)
         self.running = True
@@ -224,7 +224,7 @@ class App(ctk.CTk, TkinterDnD.DnDWrapper):
     def _stop(self):
         import main as m
         m._stop_event.set()
-        self.stop_btn.configure(state="disabled", text="중단 중...")
+        self.stop_btn.configure(state="disabled", text="Stopping...")
 
     def _reset(self):
         if self.running:
@@ -233,7 +233,7 @@ class App(ctk.CTk, TkinterDnD.DnDWrapper):
         self.file_paths["movie"]  = []
         for key in ("shorts", "movie"):
             self.hint_labels[key].configure(
-                text="클릭하거나 파일을 드래그", text_color="#555")
+                text="Click or drag file here", text_color="#555")
         for frame in self.drop_frames.values():
             frame.configure(border_color="#333")
         self.prefix_var.set("output")
@@ -277,11 +277,9 @@ class App(ctk.CTk, TkinterDnD.DnDWrapper):
         m._stop_event.clear()
         _t0 = time.time()
 
-        # 원본 저장 먼저 → devnull 패치 전에 저장해야 복원이 정확함
         old_out, old_err = sys.stdout, sys.stderr
         old_argv = sys.argv
 
-        # Windows GUI 환경에서 sys.stderr 가 None 일 수 있음 → 로깅 충돌 방지
         if sys.stderr is None:
             sys.stderr = open(os.devnull, "w")
         if sys.stdout is None:
@@ -299,29 +297,29 @@ class App(ctk.CTk, TkinterDnD.DnDWrapper):
         def _elapsed():
             s = int(time.time() - _t0)
             h, m_, s = s // 3600, (s % 3600) // 60, s % 60
-            return f"{h}:{m_:02d}:{s:02d}" if h else f"{m_}분 {s}초"
+            return f"{h}:{m_:02d}:{s:02d}" if h else f"{m_}m {s}s"
 
         try:
             sys.argv = self._build_argv("cuda")
             m.main()
-            self.log_queue.put(f"✅ 완료! (소요 시간: {_elapsed()})")
+            self.log_queue.put(f"✅ Done! (elapsed: {_elapsed()})")
         except m.StopProcessing:
-            self.log_queue.put(f"⛔ 처리가 중단되었습니다. (소요 시간: {_elapsed()})")
+            self.log_queue.put(f"⛔ Processing stopped. (elapsed: {_elapsed()})")
         except Exception as e:
             cuda_err = any(k in str(e).lower() for k in ("cuda", "out of memory", "gpu"))
             if cuda_err:
-                self.log_queue.put("⚠️ GPU 오류 → CPU로 재시도 중...")
+                self.log_queue.put("⚠️ GPU error → retrying with CPU...")
                 try:
                     m._stop_event.clear()
                     sys.argv = self._build_argv("cpu")
                     m.main()
-                    self.log_queue.put(f"✅ 완료! (CPU 사용, 소요 시간: {_elapsed()})")
+                    self.log_queue.put(f"✅ Done! (CPU mode, elapsed: {_elapsed()})")
                 except m.StopProcessing:
-                    self.log_queue.put(f"⛔ 처리가 중단되었습니다. (소요 시간: {_elapsed()})")
+                    self.log_queue.put(f"⛔ Processing stopped. (elapsed: {_elapsed()})")
                 except Exception:
-                    self.log_queue.put(f"❌ 오류:\n{traceback.format_exc()}")
+                    self.log_queue.put(f"❌ Error:\n{traceback.format_exc()}")
             else:
-                self.log_queue.put(f"❌ 오류:\n{traceback.format_exc()}")
+                self.log_queue.put(f"❌ Error:\n{traceback.format_exc()}")
         finally:
             sys.stdout, sys.stderr = old_out, old_err
             sys.argv = old_argv
@@ -342,14 +340,14 @@ class App(ctk.CTk, TkinterDnD.DnDWrapper):
     def _done(self):
         import main as m
         self.progress_bar.set(m._progress)
-        self.run_btn.configure(state="normal", text="▶  실행")
-        self.stop_btn.configure(state="disabled", text="■  중단",
+        self.run_btn.configure(state="normal", text="▶  Run")
+        self.stop_btn.configure(state="disabled", text="■  Stop",
                                 fg_color="#2a2a2a", hover_color="#7f1d1d")
         self.running = False
 
     def _open_output(self):
         if self.running:
-            self._log("⏳ 아직 처리 중입니다. 완료 후 다시 눌러주세요.")
+            self.log_queue.put("⏳ Still processing. Please wait until complete.")
             return
         prefix  = self.prefix_var.get().strip() or "output"
         base    = getattr(sys, "_MEIPASS", os.path.dirname(os.path.abspath(__file__)))
@@ -362,7 +360,7 @@ class App(ctk.CTk, TkinterDnD.DnDWrapper):
         if os.path.exists(out_dir):
             os.startfile(out_dir)
         else:
-            self._log(f"⚠️ 출력 폴더 없음: {out_dir}")
+            self.log_queue.put(f"⚠️ Output folder not found: {out_dir}")
 
 
 if __name__ == "__main__":

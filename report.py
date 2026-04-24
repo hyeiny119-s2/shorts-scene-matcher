@@ -4,12 +4,11 @@ import datetime
 
 
 def generate_report(prefix, shorts_file, out_dir,
-                    scenes, audio_times, visual_times, final_times, args,
+                    scenes, final_times, args,
                     shorts_thumbs=None, final_thumbs=None):
     os.makedirs(out_dir, exist_ok=True)
     report_path = os.path.join(out_dir, f"{prefix}_report.html")
 
-    # Copy shorts file to output folder for local playback
     shorts_basename = os.path.basename(shorts_file)
     shorts_dest = os.path.join(out_dir, shorts_basename)
     if os.path.abspath(shorts_file) != os.path.abspath(shorts_dest):
@@ -36,8 +35,8 @@ def generate_report(prefix, shorts_file, out_dir,
     ft_list = final_thumbs  or [None] * len(scenes)
 
     rows = ""
-    for i, ((s, e), _, __, ft, sth, fth) in enumerate(
-            zip(scenes, audio_times, visual_times, final_times, st_list, ft_list)):
+    for i, ((s, e), ft, sth, fth) in enumerate(
+            zip(scenes, final_times, st_list, ft_list)):
         rows += f"""
       <tr>
         <td class="num">{i+1}</td>
@@ -55,41 +54,41 @@ def generate_report(prefix, shorts_file, out_dir,
 <style>
 *{{box-sizing:border-box;margin:0;padding:0}}
 body{{background:#111;color:#eee;font-family:'Segoe UI',sans-serif;height:100vh;display:flex;flex-direction:column;overflow:hidden}}
-header{{padding:9px 18px;background:#1a1a1a;border-bottom:1px solid #252525;display:flex;align-items:center;justify-content:space-between;flex-shrink:0}}
-header h1{{font-size:13px;color:#fff;font-weight:600}}
-header .meta{{font-size:10px;color:#444;text-align:right;line-height:1.7}}
+header{{padding:10px 20px;background:#1a1a1a;border-bottom:1px solid #252525;display:flex;align-items:center;justify-content:space-between;flex-shrink:0}}
+header h1{{font-size:14px;color:#fff;font-weight:600}}
+header .meta{{font-size:11px;color:#444;text-align:right;line-height:1.7}}
 .main{{display:flex;flex:1;overflow:hidden;min-height:0}}
-.table-wrap{{flex:2;overflow-y:auto;border-right:1px solid #252525;min-width:0}}
-img.thumb{{height:80px;border-radius:4px;vertical-align:middle;margin-right:8px;object-fit:cover}}
-table{{width:100%;border-collapse:collapse;font-size:12px}}
-th{{background:#1c1c1c;padding:6px 12px;color:#555;font-weight:500;position:sticky;top:0;text-align:left;white-space:nowrap}}
-td{{padding:8px 12px;border-bottom:1px solid #1d1d1d;white-space:nowrap}}
-td.num{{color:#444;text-align:center;width:36px}}
-td.ts{{color:#999;font-variant-numeric:tabular-nums;vertical-align:middle;font-size:12px}}
-td.na{{color:#333}}
+.table-wrap{{flex:1;overflow-y:auto;border-right:1px solid #252525;min-width:0}}
+img.thumb{{height:100px;border-radius:5px;vertical-align:middle;margin-right:10px;object-fit:cover}}
+table{{width:100%;border-collapse:collapse;font-size:13px}}
+th{{background:#1c1c1c;padding:8px 14px;color:#555;font-weight:500;position:sticky;top:0;text-align:left;white-space:nowrap;font-size:13px}}
+td{{padding:10px 14px;border-bottom:1px solid #1d1d1d;white-space:nowrap}}
+td.num{{color:#444;text-align:center;width:38px;font-size:13px}}
+td.ts{{color:#999;font-variant-numeric:tabular-nums;vertical-align:middle;font-size:13px}}
+td.na{{color:#333;font-size:13px}}
 th.shorts{{color:#a78bfa}}
 th.final{{color:#f59e0b}}
 tr:hover td{{background:#1a1a1a}}
-.players{{flex:1;min-width:260px;max-width:480px;flex-shrink:0;display:flex;flex-direction:column;gap:6px;padding:8px;overflow-y:auto;background:#111}}
+.players{{flex:1;min-width:0;flex-shrink:0;display:flex;flex-direction:column;gap:8px;padding:10px;overflow-y:auto;background:#111}}
 .cell{{display:flex;flex-direction:column;background:#1c1c1c;border-radius:8px;overflow:hidden;border:2px solid #2a2a2a;flex-shrink:0}}
 .cell.ref{{border-color:#555}}.cell.final{{border-color:#f59e0b}}
-.lbl{{padding:5px 8px;font-size:11px;text-align:center;background:#181818;flex-shrink:0;line-height:1.4}}
+.lbl{{padding:6px 10px;font-size:12px;text-align:center;background:#181818;flex-shrink:0;line-height:1.4}}
 .cell.ref .lbl{{color:#aaa}}.cell.final .lbl{{color:#f59e0b}}
-.lbl small{{display:block;color:#3a3a3a;font-size:10px}}
-video{{width:100%;height:260px;background:#000;display:block;object-fit:contain}}
-.vc{{padding:5px 6px;background:#161616;display:flex;flex-direction:column;gap:3px}}
-.sr{{display:flex;align-items:center;gap:4px}}
-.t{{font-size:9px;color:#555;min-width:38px;font-variant-numeric:tabular-nums}}
+.lbl small{{display:block;color:#3a3a3a;font-size:11px}}
+video{{width:100%;height:240px;background:#000;display:block;object-fit:contain}}
+.vc{{padding:6px 8px;background:#161616;display:flex;flex-direction:column;gap:4px}}
+.sr{{display:flex;align-items:center;gap:5px}}
+.t{{font-size:10px;color:#555;min-width:42px;font-variant-numeric:tabular-nums}}
 .t.r{{text-align:right}}
 input[type=range]{{flex:1;-webkit-appearance:none;height:3px;border-radius:2px;cursor:pointer;outline:none}}
-input[type=range]::-webkit-slider-thumb{{-webkit-appearance:none;width:10px;height:10px;border-radius:50%;background:#fff;cursor:pointer}}
-.br{{display:flex;align-items:center;justify-content:center;gap:3px}}
-.btn{{background:#2a2a2a;border:none;color:#999;padding:3px 6px;border-radius:5px;cursor:pointer;font-size:10px}}
+input[type=range]::-webkit-slider-thumb{{-webkit-appearance:none;width:11px;height:11px;border-radius:50%;background:#fff;cursor:pointer}}
+.br{{display:flex;align-items:center;justify-content:center;gap:4px}}
+.btn{{background:#2a2a2a;border:none;color:#999;padding:4px 8px;border-radius:5px;cursor:pointer;font-size:11px}}
 .btn:hover{{background:#363636;color:#fff}}
-.btn.p{{background:#4a9eff;color:#fff;min-width:58px}}
+.btn.p{{background:#4a9eff;color:#fff;min-width:60px}}
 .btn.p:hover{{background:#3a8eef}}
 .btn.on{{background:#383838;color:#fff}}
-select{{background:#2a2a2a;color:#999;border:none;padding:3px 5px;border-radius:5px;cursor:pointer;font-size:10px}}
+select{{background:#2a2a2a;color:#999;border:none;padding:3px 6px;border-radius:5px;cursor:pointer;font-size:11px}}
 </style>
 </head>
 <body>

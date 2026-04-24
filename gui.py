@@ -23,9 +23,8 @@ class App(ctk.CTk, TkinterDnD.DnDWrapper):
         self.file_paths  = {"shorts": "", "movie": []}
         self.hint_labels = {}
         self.drop_frames = {}
-        self.prefix_var      = ctk.StringVar(value="output")
-        self.visual_only_var = ctk.BooleanVar(value=True)
-        self.monotonic_var   = ctk.BooleanVar(value=True)
+        self.prefix_var    = ctk.StringVar(value="output")
+        self.monotonic_var = ctk.BooleanVar(value=True)
 
         self.log_queue = queue.Queue()
         self.running   = False
@@ -67,12 +66,9 @@ class App(ctk.CTk, TkinterDnD.DnDWrapper):
             row=0, column=0, padx=(14, 6), pady=10, sticky="e")
         ctk.CTkEntry(opt, textvariable=self.prefix_var).grid(
             row=0, column=1, padx=6, pady=10, sticky="ew")
-        ctk.CTkCheckBox(opt, text="Visual Only\n(for BGM shorts)",
-                        variable=self.visual_only_var, width=148).grid(
-            row=0, column=2, padx=8)
         ctk.CTkCheckBox(opt, text="Chronological\n(prevent duplicates)",
                         variable=self.monotonic_var, width=148).grid(
-            row=0, column=3, padx=(0, 10))
+            row=0, column=2, padx=(0, 10))
 
         # Run + Stop buttons
         btn_row = ctk.CTkFrame(self, fg_color="transparent")
@@ -248,8 +244,6 @@ class App(ctk.CTk, TkinterDnD.DnDWrapper):
                 "-m"] + self.file_paths["movie"] + [
                 "-p", self.prefix_var.get().strip() or "output",
                 "--device", device]
-        if self.visual_only_var.get():
-            argv.append("--visual-only")
         if self.monotonic_var.get():
             argv.append("--monotonic")
         return argv

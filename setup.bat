@@ -1,12 +1,12 @@
 @echo off
 setlocal enabledelayedexpansion
-title Shorts Auto Editor - Setup
+title ClipTrace - Setup
 
 set "DIR=%~dp0"
 
 echo.
 echo ============================================
-echo   Shorts Auto Editor - Setup
+echo   ClipTrace - Setup
 echo ============================================
 echo.
 
@@ -88,19 +88,19 @@ echo Creating shortcuts...
 powershell -Command ^
     "$pythonw = (Get-Command python.exe -ErrorAction SilentlyContinue).Source -replace 'python.exe','pythonw.exe';" ^
     "$ws = New-Object -ComObject WScript.Shell;" ^
-    "foreach ($dest in @([IO.Path]::Combine($env:USERPROFILE,'Desktop','Shorts Auto Editor.lnk'), '%DIR%Shorts Auto Editor.lnk')) {" ^
+    "foreach ($dest in @([IO.Path]::Combine($env:USERPROFILE,'Desktop','ClipTrace.lnk'), '%DIR%ClipTrace.lnk')) {" ^
     "  $s = $ws.CreateShortcut($dest);" ^
     "  $s.TargetPath = $pythonw;" ^
     "  $s.Arguments = ('\"' + '%DIR%gui.py' + '\"');" ^
     "  $s.WorkingDirectory = '%DIR%';" ^
-    "  $s.Description = 'Shorts Auto Editor';" ^
+    "  $s.Description = 'ClipTrace';" ^
     "  $s.Save()" ^
     "}"
 
 echo.
 echo ============================================
 echo   Setup complete!
-echo   Double-click "Shorts Auto Editor"
+echo   Double-click "ClipTrace"
 echo   on your Desktop to start.
 echo.
 echo   Note: AI model (~85MB) will download

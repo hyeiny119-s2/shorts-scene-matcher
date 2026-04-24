@@ -16,7 +16,7 @@ class App(ctk.CTk, TkinterDnD.DnDWrapper):
         super().__init__()
         self.TkdndVersion = TkinterDnD._require(self)
 
-        self.title("Shorts Auto Editor")
+        self.title("ClipTrace")
         self.geometry("700x740")
         self.minsize(620, 600)
 
@@ -42,7 +42,7 @@ class App(ctk.CTk, TkinterDnD.DnDWrapper):
         # Header
         hdr = ctk.CTkFrame(self, fg_color="transparent")
         hdr.grid(row=0, column=0, padx=20, pady=(16, 6), sticky="ew")
-        ctk.CTkLabel(hdr, text="Shorts Auto Editor",
+        ctk.CTkLabel(hdr, text="ClipTrace",
                      font=("Segoe UI", 22, "bold")).pack(side="left")
         if torch.cuda.is_available():
             gpu_txt, gpu_col = f"GPU: {torch.cuda.get_device_name(0)}", "#10b981"

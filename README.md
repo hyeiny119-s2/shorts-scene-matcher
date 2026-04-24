@@ -1,4 +1,4 @@
-# Shorts Auto Editor
+# ClipTrace
 
 Automatically finds and cuts scenes from a full movie that match your shorts clip.
 
@@ -28,7 +28,7 @@ A black window will appear and install everything automatically. It closes when 
 
 ### Step 3 — Launch
 
-After installation, a **Shorts Auto Editor** shortcut will appear on your **Desktop** (and inside the folder).
+After installation, a **ClipTrace** shortcut will appear on your **Desktop** (and inside the folder).
 
 Double-click it to launch.
 

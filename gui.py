@@ -16,15 +16,16 @@ class App(ctk.CTk, TkinterDnD.DnDWrapper):
         super().__init__()
         self.TkdndVersion = TkinterDnD._require(self)
 
-        self.title("ClipTrace")
+        self.title("Shorts Auto Editor")
         self.geometry("700x740")
         self.minsize(620, 600)
 
         self.file_paths  = {"shorts": "", "movie": []}
         self.hint_labels = {}
         self.drop_frames = {}
-        self.prefix_var    = ctk.StringVar(value="output")
-        self.monotonic_var = ctk.BooleanVar(value=True)
+        self.prefix_var     = ctk.StringVar(value="output")
+        self.visual_only_var = ctk.BooleanVar(value=True)
+        self.monotonic_var  = ctk.BooleanVar(value=True)
 
         self.log_queue = queue.Queue()
         self.running   = False
@@ -41,7 +42,7 @@ class App(ctk.CTk, TkinterDnD.DnDWrapper):
         # Header
         hdr = ctk.CTkFrame(self, fg_color="transparent")
         hdr.grid(row=0, column=0, padx=20, pady=(16, 6), sticky="ew")
-        ctk.CTkLabel(hdr, text="ClipTrace",
+        ctk.CTkLabel(hdr, text="Shorts Auto Editor",
                      font=("Segoe UI", 22, "bold")).pack(side="left")
         if torch.cuda.is_available():
             gpu_txt, gpu_col = f"GPU: {torch.cuda.get_device_name(0)}", "#10b981"
@@ -54,7 +55,7 @@ class App(ctk.CTk, TkinterDnD.DnDWrapper):
         drop = ctk.CTkFrame(self)
         drop.grid(row=1, column=0, padx=20, pady=4, sticky="ew")
         drop.grid_columnconfigure((0, 1), weight=1)
-        self._make_drop_zone(drop, "📱 숏츠", "shorts", 0)
+        self._make_drop_zone(drop, "📱 숏츠 (Shorts)", "shorts", 0)
         self._make_drop_zone(drop, "🎬 풀영상 (여러 개 가능)", "movie", 1)
 
         # Options
@@ -66,9 +67,12 @@ class App(ctk.CTk, TkinterDnD.DnDWrapper):
             row=0, column=0, padx=(14, 6), pady=10, sticky="e")
         ctk.CTkEntry(opt, textvariable=self.prefix_var).grid(
             row=0, column=1, padx=6, pady=10, sticky="ew")
+        ctk.CTkCheckBox(opt, text="Visual Only\n(BGM 있는 숏츠)",
+                        variable=self.visual_only_var, width=148).grid(
+            row=0, column=2, padx=8)
         ctk.CTkCheckBox(opt, text="시간순 정렬\n(중복 방지)",
-                        variable=self.monotonic_var, width=148).grid(
-            row=0, column=2, padx=(0, 10))
+                        variable=self.monotonic_var, width=130).grid(
+            row=0, column=3, padx=(0, 10))
 
         # Run + Stop buttons
         btn_row = ctk.CTkFrame(self, fg_color="transparent")
@@ -155,8 +159,7 @@ class App(ctk.CTk, TkinterDnD.DnDWrapper):
     def _set_file(self, key, paths, frame):
         if key == "movie":
             self.file_paths[key] = paths
-            label = os.path.basename(paths[0]) if len(paths) == 1 \
-                    else f"{len(paths)}개 파일 선택됨"
+            label = os.path.basename(paths[0]) if len(paths) == 1 else f"{len(paths)}개 파일 선택됨"
         else:
             self.file_paths[key] = paths[0] if paths else ""
             label = os.path.basename(paths[0]) if paths else ""
@@ -199,13 +202,13 @@ class App(ctk.CTk, TkinterDnD.DnDWrapper):
         shorts = self.file_paths["shorts"]
         movies = self.file_paths["movie"]
         if not shorts or not movies:
-            self.log_queue.put("❌ 숏츠와 풀영상을 모두 선택해주세요.")
+            self._log("❌ 숏츠와 풀영상을 모두 선택해주세요.")
             return
         if not os.path.exists(shorts):
-            self.log_queue.put(f"❌ 파일 없음: {shorts}"); return
+            self._log(f"❌ 파일 없음: {shorts}"); return
         for m in movies:
             if not os.path.exists(m):
-                self.log_queue.put(f"❌ 파일 없음: {m}"); return
+                self._log(f"❌ 파일 없음: {m}"); return
 
         self.log_box.configure(state="normal")
         self.log_box.delete("1.0", "end")
@@ -245,6 +248,8 @@ class App(ctk.CTk, TkinterDnD.DnDWrapper):
                 "-m"] + self.file_paths["movie"] + [
                 "-p", self.prefix_var.get().strip() or "output",
                 "--device", device]
+        if self.visual_only_var.get():
+            argv.append("--visual-only")
         if self.monotonic_var.get():
             argv.append("--monotonic")
         return argv
@@ -272,9 +277,11 @@ class App(ctk.CTk, TkinterDnD.DnDWrapper):
         m._stop_event.clear()
         _t0 = time.time()
 
+        # 원본 저장 먼저 → devnull 패치 전에 저장해야 복원이 정확함
         old_out, old_err = sys.stdout, sys.stderr
         old_argv = sys.argv
 
+        # Windows GUI 환경에서 sys.stderr 가 None 일 수 있음 → 로깅 충돌 방지
         if sys.stderr is None:
             sys.stderr = open(os.devnull, "w")
         if sys.stdout is None:
@@ -342,7 +349,7 @@ class App(ctk.CTk, TkinterDnD.DnDWrapper):
 
     def _open_output(self):
         if self.running:
-            self.log_queue.put("⏳ 아직 처리 중입니다. 완료 후 다시 눌러주세요.")
+            self._log("⏳ 아직 처리 중입니다. 완료 후 다시 눌러주세요.")
             return
         prefix  = self.prefix_var.get().strip() or "output"
         base    = getattr(sys, "_MEIPASS", os.path.dirname(os.path.abspath(__file__)))
@@ -355,7 +362,7 @@ class App(ctk.CTk, TkinterDnD.DnDWrapper):
         if os.path.exists(out_dir):
             os.startfile(out_dir)
         else:
-            self.log_queue.put(f"⚠️ 출력 폴더 없음: {out_dir}")
+            self._log(f"⚠️ 출력 폴더 없음: {out_dir}")
 
 
 if __name__ == "__main__":

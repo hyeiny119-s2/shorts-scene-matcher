@@ -345,9 +345,9 @@ def main():
     movies      = args.movie
 
     if not shorts_file.lower().endswith(SUPPORTED_EXTS):
-        print(f"❌ 지원하지 않는 확장자. 지원: {SUPPORTED_EXTS}"); sys.exit(1)
+        raise ValueError(f"지원하지 않는 숏츠 파일 형식입니다. 지원: {SUPPORTED_EXTS}")
     if not os.path.exists(shorts_file):
-        print("❌ 숏츠 파일을 찾을 수 없습니다."); sys.exit(1)
+        raise FileNotFoundError(f"숏츠 파일을 찾을 수 없습니다: {shorts_file}")
 
     device_info = f"{DEVICE}"
     if torch.cuda.is_available():

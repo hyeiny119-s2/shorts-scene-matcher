@@ -23,7 +23,6 @@ class App(ctk.CTk, TkinterDnD.DnDWrapper):
         self.file_paths  = {"shorts": "", "movie": []}
         self.hint_labels = {}
         self.drop_frames = {}
-        self.prefix_var      = ctk.StringVar(value="output")
         self.monotonic_var   = ctk.BooleanVar(value=True)
         self.sim_filter_var  = ctk.BooleanVar(value=True)
         self.export_clips_var = ctk.BooleanVar(value=False)
@@ -64,10 +63,6 @@ class App(ctk.CTk, TkinterDnD.DnDWrapper):
         opt.grid(row=2, column=0, padx=20, pady=4, sticky="ew")
         opt.grid_columnconfigure(1, weight=1)
 
-        ctk.CTkLabel(opt, text="저장 폴더명:").grid(
-            row=0, column=0, padx=(14, 6), pady=10, sticky="e")
-        ctk.CTkEntry(opt, textvariable=self.prefix_var).grid(
-            row=0, column=1, padx=6, pady=10, sticky="ew")
         ctk.CTkCheckBox(opt, text="유사도 필터\n(0.4 / 해제시 0.1)",
                         variable=self.sim_filter_var, width=148).grid(
             row=0, column=2, padx=8)
@@ -240,7 +235,6 @@ class App(ctk.CTk, TkinterDnD.DnDWrapper):
                 text="클릭하거나 파일을 드래그", text_color="#555")
         for frame in self.drop_frames.values():
             frame.configure(border_color="#333")
-        self.prefix_var.set("output")
         self.progress_bar.set(0)
         self.log_box.configure(state="normal")
         self.log_box.delete("1.0", "end")
@@ -250,7 +244,6 @@ class App(ctk.CTk, TkinterDnD.DnDWrapper):
         argv = ["main.py",
                 "-s", self.file_paths["shorts"],
                 "-m"] + self.file_paths["movie"] + [
-                "-p", self.prefix_var.get().strip() or "output",
                 "--device", device]
         min_sim = "0.4" if self.sim_filter_var.get() else "0.1"
         argv += ["--min-sim", min_sim]
@@ -357,18 +350,12 @@ class App(ctk.CTk, TkinterDnD.DnDWrapper):
         if self.running:
             self.log_queue.put("⏳ 아직 처리 중입니다. 완료 후 다시 눌러주세요.")
             return
-        prefix  = self.prefix_var.get().strip() or "output"
         base    = getattr(sys, "_MEIPASS", os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-        movies  = self.file_paths["movie"]
-        if len(movies) > 1:
-            out_dir = os.path.join(base, "data", "output")
-        else:
-            stem    = os.path.splitext(os.path.basename(movies[0]))[0] if movies else ""
-            out_dir = os.path.join(base, "data", "output", f"{prefix}_{stem}")
+        out_dir = os.path.join(base, "data")
         if os.path.exists(out_dir):
             os.startfile(out_dir)
         else:
-            self.log_queue.put(f"⚠️ 출력 폴더 없음: {out_dir}")
+            self.log_queue.put("⚠️ 출력 폴더 없음: 아직 처리 결과가 없습니다.")
 
 
 if __name__ == "__main__":

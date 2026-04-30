@@ -1,6 +1,7 @@
 import cv2
 import numpy as np
 import argparse
+import datetime
 import os
 import sys
 import queue
@@ -306,7 +307,6 @@ def main():
     p = argparse.ArgumentParser()
     p.add_argument('-s', '--shorts',    required=True)
     p.add_argument('-m', '--movie',     nargs='+', required=True)
-    p.add_argument('-p', '--prefix',    required=True)
     p.add_argument('-b', '--buffer',    type=float, default=1.0)
     p.add_argument('-t', '--threshold', type=float, default=3.0,
                    help="컷 감지 민감도 (낮을수록 민감, 기본값: 3.0)")
@@ -349,7 +349,7 @@ def main():
         device_info += f" ({torch.cuda.get_device_name(0)}, {torch.cuda.get_device_properties(0).total_memory // 1024**3}GB)"
     print(f"💻 디바이스: {device_info}")
 
-    prefix = args.prefix.removesuffix('.mp4')
+    timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M")
 
     _set_progress(0.02)
     scenes = get_shorts_scenes(shorts_file, args.threshold)
@@ -379,7 +379,7 @@ def main():
             print(f"❌ 파일 없음: {movie_file} — 건너뜁니다"); continue
 
         stem    = os.path.splitext(os.path.basename(movie_file))[0]
-        out_dir = os.path.join("data/output", f"{prefix}_{stem}")
+        out_dir = os.path.join("data", f"{stem}_{timestamp}")
 
         # 1. 비주얼 DINOv2 매칭
         _set_progress(0.15)
@@ -408,7 +408,7 @@ def main():
         movie_clip = VideoFileClip(movie_file)
         try:
             render("Final", mono_times, mono_scenes, movie_clip,
-                   os.path.join(out_dir, f"{prefix}_final.mp4"), args.buffer)
+                   os.path.join(out_dir, f"{stem}_final.mp4"), args.buffer)
             if args.export_clips:
                 export_clips(mono_times, mono_scenes, movie_clip, out_dir, args.buffer)
             _set_progress(0.96)
@@ -417,11 +417,11 @@ def main():
 
         print("\n🖼️  썸네일 추출 중...")
         shorts_times  = [(s + e) / 2 for s, e in scenes]
-        shorts_thumbs = extract_thumbnails(shorts_file, shorts_times,            out_dir, prefix, "shorts")
-        final_thumbs  = extract_thumbnails(movie_file,  final_times_for_thumbs,  out_dir, prefix, "final")
+        shorts_thumbs = extract_thumbnails(shorts_file, shorts_times,            out_dir, stem, "shorts")
+        final_thumbs  = extract_thumbnails(movie_file,  final_times_for_thumbs,  out_dir, stem, "final")
 
         _set_progress(0.99)
-        generate_report(prefix, shorts_file, out_dir,
+        generate_report(stem, shorts_file, out_dir,
                         scenes, final_times_for_thumbs, args,
                         shorts_thumbs, final_thumbs)
         _set_progress(1.0)

@@ -23,8 +23,9 @@ class App(ctk.CTk, TkinterDnD.DnDWrapper):
         self.file_paths  = {"shorts": "", "movie": []}
         self.hint_labels = {}
         self.drop_frames = {}
-        self.prefix_var    = ctk.StringVar(value="output")
-        self.monotonic_var = ctk.BooleanVar(value=True)
+        self.prefix_var     = ctk.StringVar(value="output")
+        self.monotonic_var  = ctk.BooleanVar(value=True)
+        self.sim_filter_var = ctk.BooleanVar(value=True)
 
         self.log_queue = queue.Queue()
         self.running   = False
@@ -66,9 +67,12 @@ class App(ctk.CTk, TkinterDnD.DnDWrapper):
             row=0, column=0, padx=(14, 6), pady=10, sticky="e")
         ctk.CTkEntry(opt, textvariable=self.prefix_var).grid(
             row=0, column=1, padx=6, pady=10, sticky="ew")
+        ctk.CTkCheckBox(opt, text="유사도 필터\n(0.4 / 해제시 0.1)",
+                        variable=self.sim_filter_var, width=148).grid(
+            row=0, column=2, padx=8)
         ctk.CTkCheckBox(opt, text="시간순 정렬\n(중복 방지)",
                         variable=self.monotonic_var, width=148).grid(
-            row=0, column=2, padx=(0, 10))
+            row=0, column=3, padx=(0, 10))
 
         # Run + Stop buttons
         btn_row = ctk.CTkFrame(self, fg_color="transparent")
@@ -244,6 +248,8 @@ class App(ctk.CTk, TkinterDnD.DnDWrapper):
                 "-m"] + self.file_paths["movie"] + [
                 "-p", self.prefix_var.get().strip() or "output",
                 "--device", device]
+        min_sim = "0.4" if self.sim_filter_var.get() else "0.1"
+        argv += ["--min-sim", min_sim]
         if self.monotonic_var.get():
             argv.append("--monotonic")
         return argv

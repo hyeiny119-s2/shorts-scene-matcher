@@ -3,8 +3,6 @@ opencv-python-headless
 opencv-contrib-python-headless
 moviepy
 numpy<2
-librosa
-scipy
 transformers>=4.38.0,<5.0.0
 Pillow
 accelerate

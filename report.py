@@ -4,7 +4,7 @@ import datetime
 
 
 def generate_report(prefix, shorts_file, out_dir,
-                    scenes, audio_times, visual_times, final_times, args,
+                    scenes, final_times, args,
                     shorts_thumbs=None, final_thumbs=None):
     os.makedirs(out_dir, exist_ok=True)
     report_path = os.path.join(out_dir, f"{prefix}_report.html")
@@ -37,8 +37,8 @@ def generate_report(prefix, shorts_file, out_dir,
     ft_list = final_thumbs  or [None] * len(scenes)
 
     rows = ""
-    for i, ((s, e), _, __, ft, sth, fth) in enumerate(
-            zip(scenes, audio_times, visual_times, final_times, st_list, ft_list)):
+    for i, ((s, e), ft, sth, fth) in enumerate(
+            zip(scenes, final_times, st_list, ft_list)):
         rows += f"""
       <tr>
         <td class="num">{i+1}</td>

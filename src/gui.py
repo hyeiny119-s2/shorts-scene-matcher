@@ -206,13 +206,13 @@ class App(ctk.CTk, TkinterDnD.DnDWrapper):
         shorts = self.file_paths["shorts"]
         movies = self.file_paths["movie"]
         if not shorts or not movies:
-            self._log("❌ 숏츠와 풀영상을 모두 선택해주세요.")
+            self.log_queue.put("❌ 숏츠와 풀영상을 모두 선택해주세요.")
             return
         if not os.path.exists(shorts):
-            self._log(f"❌ 파일 없음: {shorts}"); return
+            self.log_queue.put(f"❌ 파일 없음: {shorts}"); return
         for m in movies:
             if not os.path.exists(m):
-                self._log(f"❌ 파일 없음: {m}"); return
+                self.log_queue.put(f"❌ 파일 없음: {m}"); return
 
         self.log_box.configure(state="normal")
         self.log_box.delete("1.0", "end")
@@ -355,7 +355,7 @@ class App(ctk.CTk, TkinterDnD.DnDWrapper):
 
     def _open_output(self):
         if self.running:
-            self._log("⏳ 아직 처리 중입니다. 완료 후 다시 눌러주세요.")
+            self.log_queue.put("⏳ 아직 처리 중입니다. 완료 후 다시 눌러주세요.")
             return
         prefix  = self.prefix_var.get().strip() or "output"
         base    = getattr(sys, "_MEIPASS", os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -368,7 +368,7 @@ class App(ctk.CTk, TkinterDnD.DnDWrapper):
         if os.path.exists(out_dir):
             os.startfile(out_dir)
         else:
-            self._log(f"⚠️ 출력 폴더 없음: {out_dir}")
+            self.log_queue.put(f"⚠️ 출력 폴더 없음: {out_dir}")
 
 
 if __name__ == "__main__":

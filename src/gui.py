@@ -23,9 +23,8 @@ class App(ctk.CTk, TkinterDnD.DnDWrapper):
         self.file_paths  = {"shorts": "", "movie": []}
         self.hint_labels = {}
         self.drop_frames = {}
-        self.monotonic_var   = ctk.BooleanVar(value=True)
-        self.sim_filter_var  = ctk.BooleanVar(value=True)
-        self.export_clips_var = ctk.BooleanVar(value=False)
+        self.monotonic_var    = ctk.BooleanVar(value=True)
+        self.export_clips_var = ctk.BooleanVar(value=True)
 
         self.log_queue = queue.Queue()
         self.running   = False
@@ -61,17 +60,14 @@ class App(ctk.CTk, TkinterDnD.DnDWrapper):
         # Options
         opt = ctk.CTkFrame(self)
         opt.grid(row=2, column=0, padx=20, pady=4, sticky="ew")
-        opt.grid_columnconfigure((0, 4), weight=1)
+        opt.grid_columnconfigure((0, 3), weight=1)
 
-        ctk.CTkCheckBox(opt, text="유사도 필터\n(0.4 / 해제시 0.1)",
-                        variable=self.sim_filter_var, width=148).grid(
-            row=0, column=1, padx=8, pady=8)
         ctk.CTkCheckBox(opt, text="시간순 정렬\n(중복 방지)",
                         variable=self.monotonic_var, width=148).grid(
-            row=0, column=2, padx=8, pady=8)
+            row=0, column=1, padx=8, pady=8)
         ctk.CTkCheckBox(opt, text="컷 개별 저장\n(clips/ 폴더)",
                         variable=self.export_clips_var, width=148).grid(
-            row=0, column=3, padx=8, pady=8)
+            row=0, column=2, padx=8, pady=8)
 
         # Run + Stop buttons
         btn_row = ctk.CTkFrame(self, fg_color="transparent")
@@ -245,8 +241,7 @@ class App(ctk.CTk, TkinterDnD.DnDWrapper):
                 "-s", self.file_paths["shorts"],
                 "-m"] + self.file_paths["movie"] + [
                 "--device", device]
-        min_sim = "0.4" if self.sim_filter_var.get() else "0.1"
-        argv += ["--min-sim", min_sim]
+        argv += ["--min-sim", "0.1"]
         if self.monotonic_var.get():
             argv.append("--monotonic")
         if self.export_clips_var.get():

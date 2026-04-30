@@ -241,7 +241,7 @@ def apply_monotonic_constraint(final_times, scenes, min_gap=5.0, buffer=1.0):
 
 # ── 개별 클립 저장 ────────────────────────────────────────────────────────────
 
-def export_clips(timestamps, shorts_scenes, movie_clip, out_dir, buffer):
+def export_clips(timestamps, shorts_scenes, movie_path, out_dir, buffer):
     clips_dir = os.path.join(out_dir, "clips")
     os.makedirs(clips_dir, exist_ok=True)
     print(f"\n📂 개별 클립 저장 중 → {clips_dir}")
@@ -249,12 +249,14 @@ def export_clips(timestamps, shorts_scenes, movie_clip, out_dir, buffer):
         _check_stop()
         if t is None:
             continue
-        t_end = min(t + (end - start) + buffer, movie_clip.duration)
         path = os.path.join(clips_dir, f"clip_{i+1:02d}.mp4")
-        print(f"  ✂️  clip_{i+1:02d}: {format_time(t)} ~ {format_time(t_end)}")
-        clip = movie_clip.subclipped(t, t_end)
-        clip.write_videofile(path, codec="libx264", audio_codec="aac")
-        clip.close()
+        print(f"  ✂️  clip_{i+1:02d}: {format_time(t)} ~ {format_time(t + (end - start) + buffer)}")
+        mc = VideoFileClip(movie_path)
+        try:
+            t_end = min(t + (end - start) + buffer, mc.duration)
+            mc.subclipped(t, t_end).write_videofile(path, codec="libx264", audio_codec="aac")
+        finally:
+            mc.close()
     print(f"  ✅ 클립 저장 완료 → {clips_dir}")
 
 # ── 썸네일 추출 ───────────────────────────────────────────────────────────────
@@ -410,7 +412,7 @@ def main():
             render("Final", mono_times, mono_scenes, movie_clip,
                    os.path.join(out_dir, f"{stem}_final.mp4"), args.buffer)
             if args.export_clips:
-                export_clips(mono_times, mono_scenes, movie_clip, out_dir, args.buffer)
+                export_clips(mono_times, mono_scenes, movie_file, out_dir, args.buffer)
             _set_progress(0.96)
         finally:
             movie_clip.close()

@@ -26,6 +26,7 @@ DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 _stop_event      = threading.Event()
 _READER_SENTINEL = object()  # pipeline sentinel (None 충돌 방지)
 _progress        = 0.0
+_report_paths: list = []
 
 class StopProcessing(Exception):
     pass
@@ -338,6 +339,8 @@ def main():
     else:
         DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
+    _report_paths.clear()
+
     shorts_file = args.shorts
     movies      = args.movie
 
@@ -426,6 +429,7 @@ def main():
         generate_report(stem, shorts_file, out_dir,
                         scenes, final_times_for_thumbs, args,
                         shorts_thumbs, final_thumbs)
+        _report_paths.append(os.path.join(out_dir, f"{stem}_report.html"))
         _set_progress(1.0)
 
 if __name__ == "__main__":

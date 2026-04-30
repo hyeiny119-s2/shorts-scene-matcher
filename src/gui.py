@@ -100,12 +100,24 @@ class App(ctk.CTk, TkinterDnD.DnDWrapper):
         self.log_box = ctk.CTkTextbox(self, font=("Consolas", 11), state="disabled")
         self.log_box.grid(row=5, column=0, padx=20, pady=(0, 6), sticky="nsew")
 
-        # Open output
+        # Bottom buttons
+        bot = ctk.CTkFrame(self, fg_color="transparent")
+        bot.grid(row=6, column=0, padx=20, pady=(0, 16), sticky="ew")
+        bot.grid_columnconfigure(0, weight=3)
+        bot.grid_columnconfigure(1, weight=1)
+
+        self.report_btn = ctk.CTkButton(
+            bot, text="📊 리포트 열기", height=42,
+            font=("Segoe UI", 14, "bold"),
+            state="disabled", command=self._open_report)
+        self.report_btn.grid(row=0, column=0, sticky="ew", padx=(0, 6))
+
         ctk.CTkButton(
-            self, text="📁 출력 폴더 열기", height=36,
+            bot, text="📁 폴더", height=42,
+            font=("Segoe UI", 12),
             fg_color="transparent", border_width=1, border_color="#444",
             command=self._open_output,
-        ).grid(row=6, column=0, padx=20, pady=(0, 16), sticky="ew")
+        ).grid(row=0, column=1, sticky="ew")
 
     def _make_drop_zone(self, parent, label, key, col):
         frame = ctk.CTkFrame(parent, height=88, border_width=2,
@@ -232,6 +244,7 @@ class App(ctk.CTk, TkinterDnD.DnDWrapper):
         for frame in self.drop_frames.values():
             frame.configure(border_color="#333")
         self.progress_bar.set(0)
+        self.report_btn.configure(state="disabled")
         self.log_box.configure(state="normal")
         self.log_box.delete("1.0", "end")
         self.log_box.configure(state="disabled")
@@ -339,7 +352,15 @@ class App(ctk.CTk, TkinterDnD.DnDWrapper):
         self.run_btn.configure(state="normal", text="▶  실행")
         self.stop_btn.configure(state="disabled", text="■  중단",
                                 fg_color="#2a2a2a", hover_color="#7f1d1d")
+        if m._report_paths:
+            self.report_btn.configure(state="normal")
         self.running = False
+
+    def _open_report(self):
+        import main as m
+        import webbrowser
+        for path in m._report_paths:
+            webbrowser.open(os.path.abspath(path))
 
     def _open_output(self):
         if self.running:

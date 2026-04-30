@@ -255,7 +255,7 @@ def export_clips(timestamps, shorts_scenes, movie_path, out_dir, buffer):
         mc = VideoFileClip(movie_path)
         try:
             t_end = min(t + (end - start) + buffer, mc.duration)
-            mc.subclipped(t, t_end).write_videofile(path, codec="libx264", audio_codec="aac")
+            mc.subclipped(t, t_end).write_videofile(path, codec="libx264", audio_codec="aac", logger=None)
         finally:
             mc.close()
     print(f"  ✅ 클립 저장 완료 → {clips_dir}")
@@ -300,7 +300,7 @@ def render(label, timestamps, shorts_scenes, movie_clip, output_path, buffer):
         return
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
     out = concatenate_videoclips(clips)
-    out.write_videofile(output_path, codec="libx264", audio_codec="aac")
+    out.write_videofile(output_path, codec="libx264", audio_codec="aac", logger=None)
     out.close()
     print(f"  ✅ 저장: {output_path}")
 

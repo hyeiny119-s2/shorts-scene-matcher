@@ -358,7 +358,7 @@ class App(ctk.CTk, TkinterDnD.DnDWrapper):
             self._log("⏳ 아직 처리 중입니다. 완료 후 다시 눌러주세요.")
             return
         prefix  = self.prefix_var.get().strip() or "output"
-        base    = getattr(sys, "_MEIPASS", os.path.dirname(os.path.abspath(__file__)))
+        base    = getattr(sys, "_MEIPASS", os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
         movies  = self.file_paths["movie"]
         if len(movies) > 1:
             out_dir = os.path.join(base, "data", "output")

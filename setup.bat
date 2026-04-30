@@ -54,8 +54,8 @@ if %errorlevel% neq 0 (
     echo ERROR: PyTorch install failed. Check internet connection.
     pause & exit /b 1
 )
-python -m pip install -r "%DIR%requirements.txt" -q
-python -m pip install -r "%DIR%requirements_gui.txt" -q
+python -m pip install -r "%DIR%src\requirements.txt" -q
+python -m pip install -r "%DIR%src\requirements_gui.txt" -q
 echo     Packages installed.
 
 REM [4/4] ffmpeg
@@ -91,7 +91,7 @@ powershell -Command ^
     "foreach ($dest in @([IO.Path]::Combine($env:USERPROFILE,'Desktop','Shorts Auto Editor.lnk'), '%DIR%Shorts Auto Editor.lnk')) {" ^
     "  $s = $ws.CreateShortcut($dest);" ^
     "  $s.TargetPath = $pythonw;" ^
-    "  $s.Arguments = ('\"' + '%DIR%gui.py' + '\"');" ^
+    "  $s.Arguments = ('\"' + '%DIR%src\gui.py' + '\"');" ^
     "  $s.WorkingDirectory = '%DIR%';" ^
     "  $s.Description = 'Shorts Auto Editor';" ^
     "  $s.Save()" ^

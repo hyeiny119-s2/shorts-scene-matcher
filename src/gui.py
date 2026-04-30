@@ -317,7 +317,7 @@ class App(ctk.CTk, TkinterDnD.DnDWrapper):
         except Exception as e:
             cuda_err = any(k in str(e).lower() for k in ("cuda", "out of memory", "gpu"))
             if cuda_err:
-                self.log_queue.put("⚠️ GPU 오류 → CPU로 재시도 중...")
+                self.log_queue.put(f"⚠️ GPU 오류 ({type(e).__name__}: {e}) → CPU로 재시도 중...")
                 try:
                     m._stop_event.clear()
                     sys.argv = self._build_argv("cpu")

@@ -61,17 +61,17 @@ class App(ctk.CTk, TkinterDnD.DnDWrapper):
         # Options
         opt = ctk.CTkFrame(self)
         opt.grid(row=2, column=0, padx=20, pady=4, sticky="ew")
-        opt.grid_columnconfigure(1, weight=1)
+        opt.grid_columnconfigure((0, 4), weight=1)
 
         ctk.CTkCheckBox(opt, text="유사도 필터\n(0.4 / 해제시 0.1)",
                         variable=self.sim_filter_var, width=148).grid(
-            row=0, column=2, padx=8)
+            row=0, column=1, padx=8, pady=8)
         ctk.CTkCheckBox(opt, text="시간순 정렬\n(중복 방지)",
                         variable=self.monotonic_var, width=148).grid(
-            row=0, column=3, padx=8)
+            row=0, column=2, padx=8, pady=8)
         ctk.CTkCheckBox(opt, text="컷 개별 저장\n(clips/ 폴더)",
                         variable=self.export_clips_var, width=148).grid(
-            row=0, column=4, padx=(0, 10))
+            row=0, column=3, padx=8, pady=8)
 
         # Run + Stop buttons
         btn_row = ctk.CTkFrame(self, fg_color="transparent")

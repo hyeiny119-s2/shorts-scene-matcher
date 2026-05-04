@@ -23,8 +23,6 @@ class App(ctk.CTk, TkinterDnD.DnDWrapper):
         self.file_paths  = {"shorts": "", "movie": []}
         self.hint_labels = {}
         self.drop_frames = {}
-        self.monotonic_var = ctk.BooleanVar(value=True)
-
         self.log_queue = queue.Queue()
         self.running   = False
 
@@ -35,7 +33,7 @@ class App(ctk.CTk, TkinterDnD.DnDWrapper):
 
     def _build_ui(self):
         self.grid_columnconfigure(0, weight=1)
-        self.grid_rowconfigure(5, weight=1)
+        self.grid_rowconfigure(4, weight=1)
 
         # Header
         hdr = ctk.CTkFrame(self, fg_color="transparent")
@@ -56,18 +54,9 @@ class App(ctk.CTk, TkinterDnD.DnDWrapper):
         self._make_drop_zone(drop, "📱 숏츠 (Shorts)", "shorts", 0)
         self._make_drop_zone(drop, "🎬 풀영상 (여러 개 가능)", "movie", 1)
 
-        # Options
-        opt = ctk.CTkFrame(self)
-        opt.grid(row=2, column=0, padx=20, pady=4, sticky="ew")
-        opt.grid_columnconfigure((0, 2), weight=1)
-
-        ctk.CTkCheckBox(opt, text="시간순 정렬\n(중복 방지)",
-                        variable=self.monotonic_var, width=148).grid(
-            row=0, column=1, padx=8, pady=8)
-
         # Run + Stop buttons
         btn_row = ctk.CTkFrame(self, fg_color="transparent")
-        btn_row.grid(row=3, column=0, padx=20, pady=6, sticky="ew")
+        btn_row.grid(row=2, column=0, padx=20, pady=6, sticky="ew")
         btn_row.grid_columnconfigure(0, weight=1)
 
         self.run_btn = ctk.CTkButton(
@@ -90,15 +79,15 @@ class App(ctk.CTk, TkinterDnD.DnDWrapper):
         # Progress bar
         self.progress_bar = ctk.CTkProgressBar(self, height=8)
         self.progress_bar.set(0)
-        self.progress_bar.grid(row=4, column=0, padx=20, pady=(0, 4), sticky="ew")
+        self.progress_bar.grid(row=3, column=0, padx=20, pady=(0, 4), sticky="ew")
 
         # Log
         self.log_box = ctk.CTkTextbox(self, font=("Consolas", 11), state="disabled")
-        self.log_box.grid(row=5, column=0, padx=20, pady=(0, 6), sticky="nsew")
+        self.log_box.grid(row=4, column=0, padx=20, pady=(0, 6), sticky="nsew")
 
         # Bottom buttons
         bot = ctk.CTkFrame(self, fg_color="transparent")
-        bot.grid(row=6, column=0, padx=20, pady=(0, 16), sticky="ew")
+        bot.grid(row=5, column=0, padx=20, pady=(0, 16), sticky="ew")
         bot.grid_columnconfigure(0, weight=3)
         bot.grid_columnconfigure(1, weight=1)
 
@@ -250,9 +239,7 @@ class App(ctk.CTk, TkinterDnD.DnDWrapper):
                 "-s", self.file_paths["shorts"],
                 "-m"] + self.file_paths["movie"] + [
                 "--device", device]
-        argv += ["--min-sim", "0.1"]
-        if self.monotonic_var.get():
-            argv.append("--monotonic")
+        argv += ["--min-sim", "0.1", "--monotonic"]
         return argv
 
     def _worker(self):

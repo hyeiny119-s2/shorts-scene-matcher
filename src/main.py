@@ -240,26 +240,6 @@ def apply_monotonic_constraint(final_times, scenes, min_gap=5.0, buffer=1.0):
     selected_idx = {x[0] for x in selected}
     return [x[1] for x in selected], [x[2] for x in selected], selected_idx
 
-# ── 개별 클립 저장 ────────────────────────────────────────────────────────────
-
-def export_clips(timestamps, shorts_scenes, movie_path, out_dir, buffer):
-    clips_dir = os.path.join(out_dir, "clips")
-    os.makedirs(clips_dir, exist_ok=True)
-    print(f"\n📂 개별 클립 저장 중 → {clips_dir}")
-    for i, ((start, end), t) in enumerate(zip(shorts_scenes, timestamps)):
-        _check_stop()
-        if t is None:
-            continue
-        path = os.path.join(clips_dir, f"clip_{i+1:02d}.mp4")
-        print(f"  ✂️  clip_{i+1:02d}: {format_time(t)} ~ {format_time(t + (end - start) + buffer)}")
-        mc = VideoFileClip(movie_path)
-        try:
-            t_end = min(t + (end - start) + buffer, mc.duration)
-            mc.subclipped(t, t_end).write_videofile(path, codec="libx264", audio_codec="aac", logger=None)
-        finally:
-            mc.close()
-    print(f"  ✅ 클립 저장 완료 → {clips_dir}")
-
 # ── 썸네일 추출 ───────────────────────────────────────────────────────────────
 
 def extract_thumbnails(video_file, times, out_dir, prefix, label):
@@ -321,8 +301,6 @@ def main():
                    help="비주얼 최소 유사도 threshold (기본값: 0.4, 미만이면 스킵)")
     p.add_argument('--gap', type=float, default=5.0,
                    help="--monotonic 최소 씬 간격 초 (기본값: 5.0)")
-    p.add_argument('--export-clips', action='store_true', default=False,
-                   help="컷을 clips/ 폴더에 개별 파일로도 저장")
     p.add_argument('--device', default='auto', choices=['auto', 'cuda', 'cpu'],
                    help="처리 장치: auto/cuda/cpu (기본값: auto)")
     args = p.parse_args()
@@ -414,8 +392,6 @@ def main():
         try:
             render("Final", mono_times, mono_scenes, movie_clip,
                    os.path.join(out_dir, f"{stem}_final.mp4"), args.buffer)
-            if args.export_clips:
-                export_clips(mono_times, mono_scenes, movie_file, out_dir, args.buffer)
             _set_progress(0.96)
         finally:
             movie_clip.close()
